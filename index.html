@@ -641,12 +641,17 @@ function openInputPage(sid){
 
 /* 인식된 세트 미등록 여부 확인 후 닫기 */
 function checkAndClose(){
-  /* 인식된 세트가 있고, 아직 전체 등록 안 된 세트가 남아있는지 확인 */
+  /* 전체 등록 완료했거나, 인식된 세트가 없으면 바로 닫기 */
+  if(allRegisteredFlag || extractedSets.length===0){
+    closeInputPage();
+    return;
+  }
+  /* 인식된 세트 중 미등록 세트 확인 */
   const unregistered=extractedSets.filter((set,i)=>{
     const btn=document.getElementById('extreg_'+i);
     return !btn || !btn.classList.contains('done');
   });
-  if(extractedSets.length>0 && unregistered.length>0){
+  if(unregistered.length>0){
     document.getElementById('modalContainer').innerHTML=`
       <div class="modal-wrap" onclick="if(event.target===this)closeM()">
         <div class="modal">
@@ -687,6 +692,7 @@ function switchTab(tab){
 
 /* ── 이미지 업로드 ── */
 let extractedSets=[];
+let allRegisteredFlag=false; /* 전체 등록 완료 시 true */
 
 const PROXY_URL='https://lotto-proxy.maybee1004.workers.dev';
 
@@ -872,6 +878,7 @@ function registerAllExtracted(){
   } else {
     showToast('모두 이미 등록된 세트입니다.');
   }
+  allRegisteredFlag=true; /* 전체 등록 완료 — 닫을 때 확인 모달 스킵 */
 }
 
 function resetImgUpload(){
@@ -881,6 +888,7 @@ function resetImgUpload(){
   document.getElementById('extractedSetsList').innerHTML='';
   document.getElementById('imgFileInput').value='';
   extractedSets=[];
+  allRegisteredFlag=false;
 }
 
 /* 이미지 탭 수동 입력 */
