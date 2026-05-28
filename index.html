@@ -32,9 +32,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .result-balls{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:36px}
 /* 추천 세트 목록 */
 .rec-set-row{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:#f8f8f6;margin-bottom:8px;flex-wrap:nowrap;overflow:visible;min-height:54px}
-.rec-set-label{font-size:11px;color:#999;min-width:44px;max-width:44px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rec-set-balls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;flex:1;padding:6px 2px;overflow:visible}
-.rec-set-divider{width:1px;height:20px;background:#e0e0dc;flex-shrink:0;margin:0 2px}
+.rec-set-label{font-size:11px;color:#999;min-width:44px;max-width:44px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:4px}
+.rec-set-balls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;flex:1;padding:6px 2px;overflow:visible;margin-left:4px}
+.rec-set-divider{width:1px;height:20px;background:#e0e0dc;flex-shrink:0;margin:0 6px}
 .rec-set-balls .ball{width:30px;height:30px;font-size:13px;font-weight:800;flex-shrink:0}
 /* 코어 볼 강조 링 */
 .b-core{box-shadow:0 0 0 2px #fff,0 0 0 4px #FFD600}
@@ -298,14 +298,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <!-- ── 번호 입력 페이지 배경 딤 (PC용) ── -->
-<div id="inputDim" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:199" onclick="closeInputPage()"></div>
+<div id="inputDim" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:199" onclick="checkAndClose()"></div>
 
 <!-- ── 번호 입력 페이지 ── -->
 <div class="input-page" id="inputPage">
   <div class="ip-header">
-    <button class="btn btn-ghost btn-sm" onclick="closeInputPage()">← 돌아가기</button>
+    <button class="btn btn-ghost btn-sm" onclick="checkAndClose()">← 돌아가기</button>
     <span class="ip-title">번호 입력</span>
-    <button class="btn btn-sm btn-primary" onclick="confirmAddAll()" id="confirmBtn">완료</button>
+    <button class="btn btn-sm btn-primary" onclick="checkAndClose()" id="confirmBtn">완료</button>
   </div>
 
   <div class="ip-source-sel" id="ipSourceSel"></div>
@@ -624,6 +624,30 @@ function openInputPage(sid){
     if(dim) dim.style.display='block';
   }
   document.body.style.overflow='hidden';
+}
+
+/* 인식된 세트 미등록 여부 확인 후 닫기 */
+function checkAndClose(){
+  /* 인식된 세트가 있고, 아직 전체 등록 안 된 세트가 남아있는지 확인 */
+  const unregistered=extractedSets.filter((set,i)=>{
+    const btn=document.getElementById('extreg_'+i);
+    return !btn || !btn.classList.contains('done');
+  });
+  if(extractedSets.length>0 && unregistered.length>0){
+    document.getElementById('modalContainer').innerHTML=`
+      <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+        <div class="modal">
+          <h3>📋 번호 등록 확인</h3>
+          <p>인식된 <strong>${unregistered.length}개</strong> 세트가 아직 등록되지 않았습니다.<br>전체 등록 후 닫으시겠습니까?</p>
+          <div class="modal-btns">
+            <button class="btn btn-ghost btn-sm" onclick="closeM();closeInputPage()">그냥 닫기</button>
+            <button class="btn btn-primary btn-sm" onclick="closeM();registerAllExtracted();closeInputPage()">전체 등록 후 닫기</button>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    closeInputPage();
+  }
 }
 
 function closeInputPage(){
@@ -1138,7 +1162,13 @@ function renderAddedPreview(){
     <div class="added-set-row">
       <span style="font-size:10px;color:#bbb;min-width:14px">${i+1}</span>
       <div class="added-set-balls">${set.map(n=>ballHtml(n,'b26')).join('')}</div>
-      <button class="del-btn" onclick="confirmDelSet('${curSrc}',${i},'preview')">✕</button>
+      <button class="edit-btn" style="opacity:1" onclick="confirmDelSet('${curSrc}',${i},'preview')" aria-label="관리">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
+          <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+          <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
     </div>`).join('');
 }
 
