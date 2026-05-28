@@ -805,16 +805,21 @@ async function processQueueItem(i){
 
 function batchRegisterAll(){
   let total=0;
+  let skipped=0;
   for(const item of imgQueueData){
     for(const set of item.sets){
       if(pushSet(curSrc,set))total++;
+      else skipped++;
     }
   }
   if(total>0){
     renderList(curSrc);updStats();autoAnalyze();saveToLS();renderAddedPreview();
-    showToast(`${total}개 세트가 등록되었습니다`);
+    const msg=skipped>0
+      ?`${total}개 세트 등록 완료. 중복 ${skipped}개 세트는 등록이 제외되었습니다.`
+      :`${total}개 세트가 등록되었습니다`;
+    showToast(msg);
   } else {
-    showToast('모두 이미 등록된 세트입니다.');
+    showToast('모두 중복 번호 세트로 등록이 제외되었습니다.');
   }
   allRegisteredFlag=true;
   document.getElementById('batchRegBtn').style.display='none';
@@ -992,20 +997,26 @@ function registerExtracted(i){
 
 function registerAllExtracted(){
   let added=0;
+  let skipped=0;
   extractedSets.forEach((set,i)=>{
     if(pushSet(curSrc,set)){
       added++;
       const btn=document.getElementById('extreg_'+i);
       if(btn){btn.textContent='✓ 등록됨';btn.className='ext-reg-btn done';}
+    } else {
+      skipped++;
     }
   });
   if(added){
     renderList(curSrc);updStats();autoAnalyze();saveToLS();renderAddedPreview();
-    showToast(`${added}개 세트가 등록되었습니다`);
+    const msg=skipped>0
+      ?`${added}개 세트 등록 완료. 중복 ${skipped}개 세트는 등록이 제외되었습니다.`
+      :`${added}개 세트가 등록되었습니다`;
+    showToast(msg);
   } else {
-    showToast('모두 이미 등록된 세트입니다.');
+    showToast('모두 중복 번호 세트로 등록이 제외되었습니다.');
   }
-  allRegisteredFlag=true; /* 전체 등록 완료 — 닫을 때 확인 모달 스킵 */
+  allRegisteredFlag=true;
 }
 
 function resetImgUpload(){
@@ -1124,7 +1135,7 @@ function addSelSet(){
       try{renderAddedPreview();}catch(e){console.error('renderAddedPreview',e);}
       showToast((SOURCES.find(s=>s.id===curSrc)||{label:'출처'}).label+'에 세트가 추가되었습니다');
     } else {
-      showToast('이미 등록된 번호 세트입니다.');
+      showToast('중복 번호 세트는 등록이 제외됩니다.');
     }
   }catch(e){
     console.error('addSelSet error:',e);
