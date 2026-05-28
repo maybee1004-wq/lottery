@@ -1481,24 +1481,42 @@ function analyzeAll(){
 
       /* 이 세트가 포함한 코어 번호 추출 */
       const coreInSet=coreNums.filter(n=>origSet.includes(n));
-
-      /* minCore 개수 미달 → 제외 */
       if(coreInSet.length<minCore) continue;
 
-      /* ★ 핵심 검증: coreInSet의 각 번호가 실제로 다른 출처(src 제외)에도 존재하는지 확인 */
-      /* 이 세트의 코어 번호들 중 '진짜 교차 검증된' 번호만 남기기 */
-      const verifiedCore=coreInSet.filter(n=>{
-        /* n이 src를 포함해 coreLevel개 이상 출처에 존재해야 함 */
-        return srcMap[n] && srcMap[n].size>=coreLevel;
-      });
-
-      /* 검증된 코어가 minCore 미달 → 제외 */
+      /* verifiedCore: srcMap 기준으로 coreLevel 이상 출처에 존재하는 번호만 */
+      const verifiedCore=coreInSet.filter(n=>srcMap[n]&&srcMap[n].size>=coreLevel);
       if(verifiedCore.length<minCore) continue;
 
-      /* ★ 추가 검증: verifiedCore 번호들이 src 외 다른 출처에 실제로 존재하는지 확인 */
+      /* ★ 핵심 정합성 검증:
+         verifiedCore 번호들 중 minCore개를 선택했을 때,
+         src를 제외한 각 출처별로 그 minCore개를 모두 포함하는 세트가 1개 이상 존재해야 함.
+         즉 각 출처에서 "verifiedCore 중 minCore개 이상 포함한 세트" 가 있어야 함. */
       const otherSrcs=active.filter(s=>s.id!==src.id);
+
+      /* 각 출처별로 verifiedCore를 minCore개 이상 포함하는 세트가 있는지 확인 */
+      const allOtherSrcsQualify=otherSrcs.every(otherSrc=>{
+        return S.sets[otherSrc.id].some(otherSet=>{
+          const matchCount=verifiedCore.filter(n=>otherSet.includes(n)).length;
+          return matchCount>=minCore;
+        });
+      });
+
+      if(!allOtherSrcsQualify) continue;
+
+      /* ★ crossVerified: verifiedCore 번호 중 모든 출처에서 minCore 조건을 만족시키는 번호만 */
+      /* 각 번호가 다른 출처 세트(minCore 조건 통과 세트) 중 어디에든 있는 번호 */
+      const qualifiedSetsByOtherSrc={};
+      for(const otherSrc of otherSrcs){
+        qualifiedSetsByOtherSrc[otherSrc.id]=S.sets[otherSrc.id].filter(otherSet=>
+          verifiedCore.filter(n=>otherSet.includes(n)).length>=minCore
+        );
+      }
+
+      /* 최종 crossVerified: 각 출처의 qualified 세트 중 하나 이상에 포함된 번호 */
       const crossVerified=verifiedCore.filter(n=>
-        otherSrcs.some(s=>srcMap[n]&&srcMap[n].has(s.id))
+        otherSrcs.every(otherSrc=>
+          qualifiedSetsByOtherSrc[otherSrc.id].some(s=>s.includes(n))
+        )
       );
 
       if(crossVerified.length<minCore) continue;
@@ -1507,14 +1525,18 @@ function analyzeAll(){
       const nonCore=origSet.filter(n=>!crossVerified.includes(n));
       const finalSet=[...crossVerified,...nonCore].slice(0,6).sort((a,b)=>a-b);
 
-      /* 이 추천의 근거: crossVerified 번호를 minCore개 이상 보유한 출처 세트만 포함 */
-      const evidenceSets=[]; /* [{srcId, setIdx, matchCount}] */
+      /* 근거 세트: 각 출처에서 crossVerified를 minCore개 이상 포함한 세트만 */
+      const evidenceSets=[];
       for(const evSrc of active){
         S.sets[evSrc.id].forEach((evSet,evIdx)=>{
           const matchCount=crossVerified.filter(n=>evSet.includes(n)).length;
           if(matchCount>=minCore) evidenceSets.push({srcId:evSrc.id,setIdx:evIdx,matchCount});
         });
       }
+
+      /* 근거가 모든 출처에 존재하는지 최종 확인 */
+      const coveredSrcs=new Set(evidenceSets.map(e=>e.srcId));
+      if(active.some(s=>!coveredSrcs.has(s.id))) continue;
 
       recSets.push({
         src:src.id,
