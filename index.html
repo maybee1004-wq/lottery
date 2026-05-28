@@ -717,7 +717,6 @@ function renderExtractedSets(){
   list.innerHTML=extractedSets.map((set,i)=>`
     <div class="ext-set-row" id="extrow_${i}">
       <div class="ext-set-balls">${set.map(n=>`<div class="ball b26 ${bc(n)}">${n}</div>`).join('')}</div>
-      <button class="ext-reg-btn" id="extreg_${i}" onclick="registerExtracted(${i})">등록</button>
     </div>`).join('');
 }
 
