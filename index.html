@@ -517,10 +517,9 @@ function renderSourceSel(){
   document.getElementById('ipSourceSel').innerHTML=
     '<span style="font-size:12px;color:#999;align-self:center;flex-shrink:0">출처 선택:</span>'+
     SOURCES.map(s=>`<button class="src-chip${curSrc===s.id?' on':''}" id="schip_${s.id}"
-        style="${curSrc===s.id?'background:'+s.color+';':'color:'+s.color}"
+        style="${curSrc===s.id?'background:'+s.color+';':''}"
         onclick="selectSrc('${s.id}')"
-      ><span style="width:7px;height:7px;border-radius:50%;background:${curSrc===s.id?'rgba(255,255,255,.7)':s.color};display:inline-block"></span>${s.label}
-    </button>`).join('');
+      >${s.label}</button>`).join('');
 }
 
 function selectSrc(id){
@@ -658,9 +657,9 @@ async function handleImgUpload(input){
         }]
       })
     });
-    const timeoutPromise=new Promise((_,rej)=>
-      setTimeout(()=>rej(new Error('TIMEOUT')), 30000)
-    );
+    const timeoutPromise=new Promise(function(_,rej){
+      setTimeout(function(){ rej(new Error('TIMEOUT')); }, 30000);
+    });
 
     const resp=await Promise.race([fetchPromise, timeoutPromise]);
     prog.style.width='80%';
