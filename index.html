@@ -275,9 +275,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="result-panel">
     <div class="rp-header">
       <div class="rp-title">🏆 교차 분석 추천 번호</div>
-      <div class="legend">
-        <div style="display:flex;align-items:center;gap:3px"><div class="leg-dot" style="background:#FFD600;border-radius:50%"></div><span>코어(공통)</span></div>
-        <div style="display:flex;align-items:center;gap:3px"><div class="leg-dot" style="background:#e8e8e4;border-radius:50%;border:1px solid #ccc"></div><span>보완</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888">
+          <span>공통</span>
+          <select id="minCoreSelect" onchange="autoAnalyze()"
+            style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#333;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:center">
+            <option value="2">2개↑</option>
+            <option value="3" selected>3개↑</option>
+            <option value="4">4개↑</option>
+            <option value="5">5개↑</option>
+            <option value="6">6개↑</option>
+          </select>
+        </div>
+        <div class="legend">
+          <div style="display:flex;align-items:center;gap:3px"><div class="leg-dot" style="background:#FFD600;border-radius:50%"></div><span>코어</span></div>
+          <div style="display:flex;align-items:center;gap:3px"><div class="leg-dot" style="background:#e8e8e4;border-radius:50%;border:1px solid #ccc"></div><span>보완</span></div>
+        </div>
       </div>
     </div>
     <div id="resultSets">
@@ -1303,24 +1316,33 @@ function analyzeAll(){
   }
 
   /* ── STEP 3: 출처별 추천 세트 생성 ── */
+  /* 최소 공통 번호 개수 옵션 읽기 (기본값 3) */
+  const minCoreEl=document.getElementById('minCoreSelect');
+  const minCore=minCoreEl ? parseInt(minCoreEl.value)||3 : 3;
+
+  /* 각 출처에서 코어 번호를 minCore개 이상 포함한 세트만 추천 후보로 사용 */
   const recSets=[];
   for(const src of active){
-    const srcFreq={};
-    for(const set of S.sets[src.id])for(const n of set)srcFreq[n]=(srcFreq[n]||0)+1;
-    const srcNums=Object.keys(srcFreq).map(Number).sort((a,b)=>srcFreq[b]-srcFreq[a]||a-b);
+    const setsWithCore=S.sets[src.id]
+      .map((set,idx)=>({set,idx,coreCount:set.filter(n=>coreNums.includes(n)).length}))
+      .filter(item=>item.coreCount>=minCore)
+      .sort((a,b)=>b.coreCount-a.coreCount);
 
-    for(const origSet of S.sets[src.id]){
+    for(const {set:origSet} of setsWithCore){
       const origSet_s=new Set(origSet);
-      const coreInSet=coreNums.filter(n=>origSet_s.has(n));
-      const coreOther=coreNums.filter(n=>!origSet_s.has(n));
-      const selectedCore=[...coreInSet,...coreOther].slice(0,Math.min(coreNums.length,5));
-
-      const nonCoreInSet=origSet.filter(n=>!selectedCore.includes(n));
-      const remaining=[...new Set([...nonCoreInSet,...srcNums])].filter(n=>!selectedCore.includes(n));
-
-      const finalSet=[...selectedCore,...remaining].slice(0,6).sort((a,b)=>a-b);
+      const selectedCore=coreNums.filter(n=>origSet_s.has(n));
+      const nonCore=origSet.filter(n=>!selectedCore.includes(n));
+      const finalSet=[...selectedCore,...nonCore].slice(0,6).sort((a,b)=>a-b);
       recSets.push({src:src.id,label:src.label,color:src.color,set:finalSet,core:new Set(selectedCore)});
     }
+  }
+
+  /* 결과 없음 */
+  if(!recSets.length){
+    rs.innerHTML=`<span style="font-size:11px;color:#aaa">공통 번호 ${minCore}개 이상인 세트가 없습니다. 옵션을 낮춰보세요.</span>`;
+    na.style.display='none';
+    document.getElementById('analyzedCount').textContent='-';
+    return;
   }
 
   /* 중복 세트 제거 */
@@ -1349,7 +1371,7 @@ function analyzeAll(){
 
   let story=`${active.map(s=>s.label).join('·')} 총 ${active.reduce((a,s)=>a+S.sets[s.id].length,0)}세트 분석. `;
   story+=`<strong>${coreStr}</strong> 등 ${coreNums.length}개 번호가 ${coreLevel}개 출처 공통 코어로 선정. `;
-  story+=`코어(🟡 링)를 고정하고 각 출처별 나머지 번호로 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
+  story+=`코어(🟡 링)를 고정하고 공통 번호 ${minCore}개 이상 세트 기준 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
   na.innerHTML=story;
   na.style.display='block';
   }catch(e){console.error('analyzeAll error:',e);}
