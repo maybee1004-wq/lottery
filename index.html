@@ -259,6 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .rec-set-row.selected{background:#FFF8E1;border:2px solid #FFD600;transition:all .2s}
 .rec-set-row{cursor:pointer;transition:opacity .15s}
 .rec-set-row:active{opacity:.85}
+.verify-badge{font-size:10px;color:#7A4F00;background:#FFD600;border-radius:8px;padding:2px 5px;font-weight:700;white-space:nowrap;line-height:1.3;text-align:center;flex-shrink:0;min-width:32px;display:none}
 .modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:300;padding:20px}
 .modal{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%}
 .modal h3{font-size:15px;font-weight:700;margin-bottom:8px}
@@ -537,7 +538,8 @@ function renderList(sid){
       <span class="set-idx">${i+1}</span>
       <div class="set-balls">${set.map(n=>ballHtml(n,'b26')).join('')}</div>
       <div class="set-actions">
-        <button class="edit-btn" onclick="openEditPage('${sid}',${i})" title="수정" aria-label="수정">
+        <span class="verify-badge" id="vbadge_${sid}_${i}" style="display:none;font-size:10px;color:#7A4F00;background:#FFD600;border-radius:10px;padding:2px 6px;font-weight:600;white-space:nowrap;line-height:1.4;text-align:center"></span>
+        <button class="edit-btn" id="ebtn_${sid}_${i}" onclick="openEditPage('${sid}',${i})" title="수정" aria-label="수정">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
             <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
@@ -1628,12 +1630,11 @@ function toggleVerify(rowIdx){
       const setRows=board.querySelectorAll('.set-row');
       if(setRows[ev.setIdx]){
         setRows[ev.setIdx].classList.add('highlighted');
-        /* 매칭 배지 */
-        const badge=document.createElement('span');
-        badge.className='verify-badge';
-        badge.textContent=ev.matchCount+'개 공통';
-        badge.style.cssText='font-size:10px;color:#7A4F00;background:#FFD600;border-radius:10px;padding:1px 6px;margin-left:4px;flex-shrink:0;font-weight:600;white-space:nowrap';
-        setRows[ev.setIdx].appendChild(badge);
+        /* 미리 만든 배지 슬롯 활용 — DOM 추가 없이 교체 */
+        const badge=document.getElementById('vbadge_'+sid+'_'+ev.setIdx);
+        const editBtn=document.getElementById('ebtn_'+sid+'_'+ev.setIdx);
+        if(badge){badge.innerHTML=ev.matchCount+'개<br>공통';badge.style.display='inline-block';}
+        if(editBtn) editBtn.style.display='none';
         highlightCount++;
         if(!firstBoard)firstBoard=board;
       }
@@ -1657,7 +1658,12 @@ function clearVerify(){
   activeVerifyIdx=null;
   document.querySelectorAll('.set-row.highlighted').forEach(el=>{
     el.classList.remove('highlighted');
-    el.querySelectorAll('.verify-badge').forEach(b=>b.remove());
+    /* 배지 슬롯 숨기기 */
+    el.querySelectorAll('.verify-badge').forEach(b=>{b.style.display='none';b.innerHTML='';});
+    /* ⋯ 버튼 복원 */
+    el.querySelectorAll('.edit-btn').forEach(b=>b.style.display='');
+    /* 동적 추가된 배지 제거 (구버전 호환) */
+    el.querySelectorAll('span.verify-badge:not([id])').forEach(b=>b.remove());
   });
   document.querySelectorAll('.rec-set-row.selected').forEach(el=>el.classList.remove('selected'));
 }
