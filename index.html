@@ -1381,6 +1381,19 @@ const LS_KEY='lotto_sets_v1';
 
 function saveToLS(){
   try{localStorage.setItem(LS_KEY,JSON.stringify(S.sets));}catch(e){}
+  /* URL도 동시에 업데이트 → 주소창 복사만으로 다른 기기에 공유 가능 */
+  try{
+    const total=SOURCES.reduce((a,s)=>a+S.sets[s.id].length,0);
+    if(window.history&&window.history.replaceState){
+      if(total>0){
+        const encoded=encodeData();
+        const base=window.location.origin+window.location.pathname;
+        window.history.replaceState(null,'',base+'?d='+encoded);
+      } else {
+        window.history.replaceState(null,'',window.location.pathname);
+      }
+    }
+  }catch(e){}
 }
 
 function loadFromLS(){
@@ -1433,17 +1446,13 @@ function loadFromURL(){
 }
 
 function shareUrl(){
-  const encoded=encodeData();
   const total=SOURCES.reduce((a,s)=>a+S.sets[s.id].length,0);
   if(!total){showToast('입력된 번호가 없습니다.');return;}
-  /* 현재 URL에 ?d= 파라미터 추가 */
-  const base=window.location.origin+window.location.pathname;
-  const shareLink=base+'?d='+encoded;
-  /* 클립보드 복사 */
+  const shareLink=window.location.href;
   if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(shareLink).then(()=>{
-      showShareModal(shareLink);
-    }).catch(()=>showShareModal(shareLink));
+    navigator.clipboard.writeText(shareLink)
+      .then(()=>showShareModal(shareLink))
+      .catch(()=>showShareModal(shareLink));
   } else {
     showShareModal(shareLink);
   }
@@ -1454,7 +1463,7 @@ function showShareModal(link){
     <div class="modal-wrap" onclick="if(event.target===this)closeM()">
       <div class="modal">
         <h3>🔗 공유 링크</h3>
-        <p style="font-size:12px;color:#555;margin-bottom:8px">아래 링크를 복사해서 다른 기기에서 열면<br>동일한 번호 데이터를 볼 수 있습니다.</p>
+        <p style="font-size:12px;color:#555;margin-bottom:8px">현재 주소창 URL을 다른 기기에서 열면<br>동일한 번호 데이터가 바로 표시됩니다.</p>
         <div style="background:#f5f5f0;border-radius:8px;padding:10px;font-size:11px;word-break:break-all;color:#185FA5;margin-bottom:12px;border:1px solid #e8e8e4;max-height:80px;overflow-y:auto">${link}</div>
         <div class="modal-btns">
           <button class="btn btn-ghost btn-sm" onclick="closeM()">닫기</button>
