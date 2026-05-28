@@ -272,7 +272,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="app">
   <div class="app-header">
     <span style="font-size:20px">🎱</span>
-    <span class="app-header-title">로또 교차 출처 분석기</span>
+    <span class="app-header-title">로또 번호 추천기</span>
     <div class="header-right">
       <button class="btn btn-sm btn-primary" onclick="openInputPage(null)">✏️ 번호 입력</button>
     </div>
@@ -312,12 +312,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <div class="boards" id="boardsGrid"></div>
 
-  <div class="bottom-bar">
-    <span style="font-size:11px;color:#aaa">출처별 번호를 입력하고 교차 분석을 실행하세요</span>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-primary" onclick="runAnalysis()">📊 교차 분석</button>
-      <button class="btn btn-danger" onclick="confirmReset()">🔄 초기화</button>
-    </div>
+  <div class="bottom-bar" style="justify-content:flex-end">
+    <button class="btn btn-danger" onclick="confirmReset()">🔄 초기화</button>
   </div>
 </div>
 
