@@ -1398,6 +1398,7 @@ function runAnalysis(){
 function analyzeAll(){
   try{
   clearVerify();
+  activeVerifyIdx=null;
   /* 분석 대상으로 선택(체크)된 출처 전체 */
   const selected=SOURCES.filter(s=>S.active[s.id]);
   /* 선택된 출처 중 번호가 입력된 출처 */
@@ -1443,7 +1444,8 @@ function analyzeAll(){
     }
   }
 
-  /* ── STEP 2: 코어 번호 결정 (최대 공통 레벨부터 하강) ── */
+  /* ── STEP 2: 코어 번호 결정 ── */
+  /* 각 번호가 실제로 몇 개 출처의 세트에 등장하는지 계산 */
   const maxSrc=active.length;
   let coreNums=[];
   let coreLevel=0;
@@ -1459,7 +1461,7 @@ function analyzeAll(){
     }
   }
 
-  /* 공통번호 없음 — 폴백 없이 안내만 표시 */
+  /* 공통번호 없음 */
   if(!coreNums.length){
     rs.innerHTML='<span style="font-size:11px;color:#aaa">출처 간 공통 번호가 없습니다. 번호 세트를 추가해 주세요.</span>';
     na.style.display='none';
@@ -1467,25 +1469,62 @@ function analyzeAll(){
     return;
   }
 
-  /* ── STEP 3: 출처별 추천 세트 생성 ── */
-  /* 최소 공통 번호 개수 옵션 읽기 (기본값 3) */
+  /* ── STEP 3: 추천 세트 생성 ── */
   const minCoreEl=document.getElementById('minCoreSelect');
   const minCore=minCoreEl ? parseInt(minCoreEl.value)||3 : 3;
 
-  /* 각 출처에서 코어 번호를 minCore개 이상 포함한 세트만 추천 후보로 사용 */
   const recSets=[];
-  for(const src of active){
-    const setsWithCore=S.sets[src.id]
-      .map((set,idx)=>({set,idx,coreCount:set.filter(n=>coreNums.includes(n)).length}))
-      .filter(item=>item.coreCount>=minCore)
-      .sort((a,b)=>b.coreCount-a.coreCount);
 
-    for(const {set:origSet} of setsWithCore){
-      const origSet_s=new Set(origSet);
-      const selectedCore=coreNums.filter(n=>origSet_s.has(n));
-      const nonCore=origSet.filter(n=>!selectedCore.includes(n));
-      const finalSet=[...selectedCore,...nonCore].slice(0,6).sort((a,b)=>a-b);
-      recSets.push({src:src.id,label:src.label,color:src.color,set:finalSet,core:new Set(selectedCore)});
+  for(const src of active){
+    for(let idx=0;idx<S.sets[src.id].length;idx++){
+      const origSet=S.sets[src.id][idx];
+
+      /* 이 세트가 포함한 코어 번호 추출 */
+      const coreInSet=coreNums.filter(n=>origSet.includes(n));
+
+      /* minCore 개수 미달 → 제외 */
+      if(coreInSet.length<minCore) continue;
+
+      /* ★ 핵심 검증: coreInSet의 각 번호가 실제로 다른 출처(src 제외)에도 존재하는지 확인 */
+      /* 이 세트의 코어 번호들 중 '진짜 교차 검증된' 번호만 남기기 */
+      const verifiedCore=coreInSet.filter(n=>{
+        /* n이 src를 포함해 coreLevel개 이상 출처에 존재해야 함 */
+        return srcMap[n] && srcMap[n].size>=coreLevel;
+      });
+
+      /* 검증된 코어가 minCore 미달 → 제외 */
+      if(verifiedCore.length<minCore) continue;
+
+      /* ★ 추가 검증: verifiedCore 번호들이 src 외 다른 출처에 실제로 존재하는지 확인 */
+      const otherSrcs=active.filter(s=>s.id!==src.id);
+      const crossVerified=verifiedCore.filter(n=>
+        otherSrcs.some(s=>srcMap[n]&&srcMap[n].has(s.id))
+      );
+
+      if(crossVerified.length<minCore) continue;
+
+      /* 교차 검증 통과 → 추천 세트 생성 */
+      const nonCore=origSet.filter(n=>!crossVerified.includes(n));
+      const finalSet=[...crossVerified,...nonCore].slice(0,6).sort((a,b)=>a-b);
+
+      /* 이 추천의 근거: crossVerified 번호를 보유한 모든 출처 세트 인덱스 */
+      const evidenceSets=[]; /* [{srcId, setIdx}] */
+      for(const evSrc of active){
+        S.sets[evSrc.id].forEach((evSet,evIdx)=>{
+          const matchCount=crossVerified.filter(n=>evSet.includes(n)).length;
+          if(matchCount>0) evidenceSets.push({srcId:evSrc.id,setIdx:evIdx,matchCount});
+        });
+      }
+
+      recSets.push({
+        src:src.id,
+        origIdx:idx,
+        label:src.label,
+        color:src.color,
+        set:finalSet,
+        core:new Set(crossVerified),
+        evidenceSets
+      });
     }
   }
 
@@ -1507,12 +1546,9 @@ function analyzeAll(){
 
   /* ── STEP 4: UI 렌더 ── */
   rs.innerHTML=uniqueSets.map((r,i)=>{
-    /* 원본 출처 세트 인덱스 추적 */
-    const srcSets=S.sets[r.src];
-    const origIdx=srcSets.findIndex(s=>s.join(',')===r.set.join(','));
-    const dataKey=`${r.src}:${origIdx}`;
+    const evidenceJson=JSON.stringify(r.evidenceSets||[]).replace(/"/g,'&quot;');
     return `
-    <div class="rec-set-row" onclick="toggleVerify('${dataKey}',${i})" id="rrow_${i}" data-key="${dataKey}">
+    <div class="rec-set-row" onclick="toggleVerify(${i})" id="rrow_${i}" data-evidence="${evidenceJson}">
       <span class="rec-set-label" style="color:${r.color};font-weight:600">${r.label}</span>
       <div class="rec-set-divider"></div>
       <div class="rec-set-balls">
@@ -1536,60 +1572,52 @@ function analyzeAll(){
 }
 
 /* ── 검증 하이라이트 ── */
-let activeVerifyKey=null;
+let activeVerifyIdx=null;
 
-function toggleVerify(dataKey,rowIdx){
-  if(activeVerifyKey===dataKey){clearVerify();return;}
+function toggleVerify(rowIdx){
+  if(activeVerifyIdx===rowIdx){clearVerify();return;}
   clearVerify();
-  activeVerifyKey=dataKey;
+  activeVerifyIdx=rowIdx;
 
-  /* 추천 행 선택 표시 */
   const rrow=document.getElementById('rrow_'+rowIdx);
-  if(rrow)rrow.classList.add('selected');
+  if(!rrow)return;
+  rrow.classList.add('selected');
 
-  /* 추천 행의 코어 번호 목록 추출 (b-core 클래스 볼) */
-  const coreNums=[];
-  if(rrow){
-    rrow.querySelectorAll('.ball.b-core').forEach(el=>{
-      const n=parseInt(el.textContent);
-      if(n>=1&&n<=45)coreNums.push(n);
-    });
-  }
-  if(!coreNums.length){
-    showToast('코어 번호가 없습니다.');
-    return;
-  }
+  /* evidenceSets: [{srcId, setIdx, matchCount}] */
+  let evidenceSets=[];
+  try{ evidenceSets=JSON.parse(rrow.dataset.evidence||'[]'); }catch(e){}
 
-  /* 모든 활성 출처에서 코어 번호를 하나라도 포함한 세트 하이라이트 */
+  if(!evidenceSets.length){showToast('근거 데이터가 없습니다.');return;}
+
+  /* 출처별 근거 세트 하이라이트 */
+  const srcGroups={};
+  evidenceSets.forEach(ev=>{
+    if(!srcGroups[ev.srcId])srcGroups[ev.srcId]=[];
+    srcGroups[ev.srcId].push(ev);
+  });
+
   let highlightCount=0;
   let firstBoard=null;
 
-  SOURCES.forEach(src=>{
-    if(!S.active[src.id])return;
-    const board=document.getElementById('board_'+src.id);
+  Object.entries(srcGroups).forEach(([sid,evList])=>{
+    const board=document.getElementById('board_'+sid);
     if(!board||board.classList.contains('hidden'))return;
 
-    S.sets[src.id].forEach((set,i)=>{
-      /* 이 세트가 코어 번호를 몇 개 포함하는지 */
-      const matchCount=coreNums.filter(n=>set.includes(n)).length;
-      if(matchCount===0)return;
-
+    evList.forEach(ev=>{
       /* 접혀있으면 펼치기 */
-      if(!expandedBoards[src.id]&&i>=PREVIEW_COUNT){
-        expandedBoards[src.id]=true;
-        renderList(src.id);
+      if(!expandedBoards[sid]&&ev.setIdx>=PREVIEW_COUNT){
+        expandedBoards[sid]=true;
+        renderList(sid);
       }
-
-      /* 세트 행 하이라이트 + 매칭 개수 표시 */
       const setRows=board.querySelectorAll('.set-row');
-      if(setRows[i]){
-        setRows[i].classList.add('highlighted');
-        /* 매칭 개수 배지 */
+      if(setRows[ev.setIdx]){
+        setRows[ev.setIdx].classList.add('highlighted');
+        /* 매칭 배지 */
         const badge=document.createElement('span');
         badge.className='verify-badge';
-        badge.textContent=matchCount+'/'+coreNums.length;
-        badge.style.cssText='font-size:10px;color:#7A4F00;background:#FFD600;border-radius:10px;padding:1px 6px;margin-left:4px;flex-shrink:0;font-weight:600';
-        setRows[i].appendChild(badge);
+        badge.textContent=ev.matchCount+'개 일치';
+        badge.style.cssText='font-size:10px;color:#7A4F00;background:#FFD600;border-radius:10px;padding:1px 6px;margin-left:4px;flex-shrink:0;font-weight:600;white-space:nowrap';
+        setRows[ev.setIdx].appendChild(badge);
         highlightCount++;
         if(!firstBoard)firstBoard=board;
       }
@@ -1597,20 +1625,22 @@ function toggleVerify(dataKey,rowIdx){
   });
 
   if(firstBoard){
-    setTimeout(()=>{
-      firstBoard.scrollIntoView({behavior:'smooth',block:'start'});
-    },100);
+    setTimeout(()=>firstBoard.scrollIntoView({behavior:'smooth',block:'start'}),100);
   }
 
-  const coreStr=coreNums.join(', ');
-  showToast(`코어 ${coreStr} 포함 세트 ${highlightCount}개 하이라이트. 다시 탭하면 해제됩니다.`);
+  /* 출처별 요약 */
+  const srcSummary=Object.entries(srcGroups).map(([sid,evList])=>{
+    const src=SOURCES.find(s=>s.id===sid);
+    return `${src?src.label:sid}(${evList.length}세트)`;
+  }).join(', ');
+
+  showToast(`근거: ${srcSummary} — 다시 탭하면 해제`);
 }
 
 function clearVerify(){
-  activeVerifyKey=null;
+  activeVerifyIdx=null;
   document.querySelectorAll('.set-row.highlighted').forEach(el=>{
     el.classList.remove('highlighted');
-    /* 배지 제거 */
     el.querySelectorAll('.verify-badge').forEach(b=>b.remove());
   });
   document.querySelectorAll('.rec-set-row.selected').forEach(el=>el.classList.remove('selected'));
