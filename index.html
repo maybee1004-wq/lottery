@@ -225,7 +225,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .num-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:10px}
 .num-key{width:100%;aspect-ratio:1;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;transition:opacity .1s}
 .num-key.disabled{opacity:.3;pointer-events:none}
-.num-actions{display:flex;gap:8px}
+.num-actions{display:flex;gap:8px;justify-content:center}
 
 /* 추가된 세트 미리보기 */
 .added-sets-wrap{margin-top:16px}
@@ -366,9 +366,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div class="num-grid" id="numGrid"></div>
         <div class="num-actions">
-          <button class="btn btn-ghost btn-sm" onclick="clearSel()" style="flex:1;font-size:11px">전체 지우기</button>
-          <button class="btn btn-ghost btn-sm" onclick="backspaceSel()" style="flex:1;font-size:11px">지우기 ←</button>
-          <button class="btn btn-primary btn-sm" onclick="addSelSet()" style="flex:1.2;font-size:11px">추가</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearSel()" style="flex:1;font-size:11px;justify-content:center">전체 지우기</button>
+          <button class="btn btn-ghost btn-sm" onclick="backspaceSel()" style="flex:1;font-size:11px;justify-content:center">지우기</button>
+          <button class="btn btn-primary btn-sm" onclick="addSelSet()" style="flex:1.2;font-size:11px;justify-content:center">추가</button>
         </div>
       </div>
     </div>
