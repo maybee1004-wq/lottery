@@ -64,7 +64,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .src-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .set-badge{font-size:11px;color:#888;background:#f5f5f0;padding:2px 8px;border-radius:10px}
 
-.sets-list{display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto;max-height:160px}
+.sets-list{display:flex;flex-direction:column;gap:3px;flex:1}
+.expand-btn{width:100%;padding:6px;background:none;border:1px dashed #ddd;border-radius:8px;font-size:11px;color:#aaa;cursor:pointer;margin-top:4px;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.expand-btn:hover,.expand-btn:active{background:#f5f5f0;color:#888}
 .set-row{display:flex;align-items:center;gap:4px;padding:6px 8px;background:#f5f5f0;border-radius:8px;position:relative}
 .set-row:hover .edit-btn{opacity:1}
 .set-idx{font-size:11px;color:#bbb;min-width:16px}
@@ -288,7 +290,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="bottom-bar">
     <span style="font-size:11px;color:#aaa">출처별 번호를 입력하고 교차 분석을 실행하세요</span>
     <div style="display:flex;gap:6px">
-      <button class="btn btn-primary" onclick="analyzeAll()">📊 교차 분석</button>
+      <button class="btn btn-primary" onclick="runAnalysis()">📊 교차 분석</button>
       <button class="btn btn-danger" onclick="confirmReset()">🔄 초기화</button>
     </div>
   </div>
@@ -494,25 +496,54 @@ function renderBoards(){
     </div>`).join('');
 }
 
+/* 출처별 펼침 상태 */
+const expandedBoards={A:false,B:false,C:false,D:false};
+const PREVIEW_COUNT=10;
+
 function renderList(sid){
   const sets=S.sets[sid];
   document.getElementById('cnt_'+sid).textContent=sets.length+' 세트';
-  document.getElementById('list_'+sid).innerHTML=sets.length
-    ?sets.map((set,i)=>`
-      <div class="set-row">
-        <span class="set-idx">${i+1}</span>
-        <div class="set-balls">${set.map(n=>ballHtml(n,'b26')).join('')}</div>
-        <div class="set-actions">
-          <button class="edit-btn" onclick="openEditPage('${sid}',${i})" title="수정" aria-label="수정">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
-              <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-              <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
-            </svg>
-          </button>
-        </div>
-      </div>`).join('')
-    :'<div class="empty-msg">등록된 번호 없음</div>';
+
+  if(!sets.length){
+    document.getElementById('list_'+sid).innerHTML='<div class="empty-msg">등록된 번호 없음</div>';
+    return;
+  }
+
+  const isExpanded=expandedBoards[sid];
+  const showSets=isExpanded?sets:sets.slice(0,PREVIEW_COUNT);
+  const hasMore=sets.length>PREVIEW_COUNT;
+
+  const rowsHtml=showSets.map((set,i)=>`
+    <div class="set-row">
+      <span class="set-idx">${i+1}</span>
+      <div class="set-balls">${set.map(n=>ballHtml(n,'b26')).join('')}</div>
+      <div class="set-actions">
+        <button class="edit-btn" onclick="openEditPage('${sid}',${i})" title="수정" aria-label="수정">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+    </div>`).join('');
+
+  let expandHtml='';
+  if(hasMore){
+    if(!isExpanded){
+      const remaining=sets.length-PREVIEW_COUNT;
+      expandHtml=`<button class="expand-btn" onclick="toggleExpand('${sid}')">▼ ${remaining}개 더 보기 (전체 ${sets.length}개)</button>`;
+    } else {
+      expandHtml=`<button class="expand-btn" onclick="toggleExpand('${sid}')">▲ 접기</button>`;
+    }
+  }
+
+  document.getElementById('list_'+sid).innerHTML=rowsHtml+expandHtml;
+}
+
+function toggleExpand(sid){
+  expandedBoards[sid]=!expandedBoards[sid];
+  renderList(sid);
 }
 
 function confirmDelSet(sid,i,from){
@@ -542,6 +573,8 @@ function confirmDelSet(sid,i,from){
 
 function delSet(sid,i,from){
   S.sets[sid].splice(i,1);
+  /* 남은 세트가 PREVIEW_COUNT 이하면 펼침 상태 초기화 */
+  if(S.sets[sid].length<=PREVIEW_COUNT) expandedBoards[sid]=false;
   renderList(sid);
   updStats();
   analyzeAll();
@@ -1114,6 +1147,40 @@ function toSets(nums){
   return res;
 }
 
+/* ── 교차 분석 버튼 클릭 시 호출 ── */
+function runAnalysis(){
+  const selected=SOURCES.filter(s=>S.active[s.id]);
+
+  /* 출처 미선택 */
+  if(!selected.length){
+    showAlert('분석 대상 없음','분석 대상 출처를 1개 이상 선택해 주세요.');
+    return;
+  }
+  /* 출처 1개 */
+  if(selected.length<2){
+    showAlert('출처 부족','교차 분석은 2개 이상의 출처가 필요합니다.');
+    return;
+  }
+  /* 번호 미입력 출처 */
+  const missing=selected.filter(s=>S.sets[s.id].length===0);
+  if(missing.length){
+    showAlert('번호 미입력',
+      `다음 출처에 번호가 입력되지 않았습니다:\n\n${missing.map(s=>'• '+s.label).join('\n')}\n\n모든 분석 대상 출처에 번호를 입력해 주세요.`);
+    return;
+  }
+
+  /* 정상 조건 충족 → 분석 실행 */
+  analyzeAll();
+
+  /* 분석 후 공통 번호 없는 경우 */
+  const rs=document.getElementById('resultSets');
+  if(rs&&rs.innerHTML.includes('공통 번호가 없습니다')){
+    showAlert('공통 번호 없음','출처 간 공통 번호가 없습니다.\n\n각 출처의 번호 세트를 확인하거나,\n분석 출처 수를 줄여보세요.');
+  } else {
+    showToast('교차 분석이 완료되었습니다.');
+  }
+}
+
 /* ── 교차 분석 (코어 고정 + 출처별 세트 완성) ── */
 function analyzeAll(){
   try{
@@ -1268,6 +1335,18 @@ function doReset(){
 }
 function closeM(){document.getElementById('modalContainer').innerHTML='';}
 
+function showAlert(title,msg){
+  document.getElementById('modalContainer').innerHTML=`
+    <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+      <div class="modal">
+        <h3>⚠️ ${title}</h3>
+        <p>${msg.replace(/\n/g,'<br>')}</p>
+        <div class="modal-btns">
+          <button class="btn btn-primary btn-sm" onclick="closeM()">확인</button>
+        </div>
+      </div>
+    </div>`;
+}
 /* ── 토스트 ── */
 let toastTimer=null;
 function showToast(msg){
