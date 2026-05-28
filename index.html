@@ -469,7 +469,15 @@ function toggleSrc(id){
   /* 보드 숨김/표시 (데이터는 유지) */
   const board=document.getElementById('board_'+id);
   if(board)board.className='board'+(S.active[id]?'':' hidden');
-  analyzeAll();
+  /* 실시간 교차 분석 (조건 미충족 시 조용히 analyzeAll만) */
+  const selected=SOURCES.filter(s=>S.active[s.id]);
+  const missing=selected.filter(s=>S.sets[s.id].length===0);
+  if(selected.length>=2 && missing.length===0){
+    analyzeAll();
+    showToast('교차 분석이 업데이트되었습니다.');
+  } else {
+    analyzeAll(); /* 결과 패널 상태 갱신만 */
+  }
 }
 
 /* 번호대별 CSS 클래스 */
@@ -626,7 +634,7 @@ function closeInputPage(){
   clearSel();
   SOURCES.forEach(s=>renderList(s.id));
   updStats();
-  analyzeAll();
+  autoAnalyze();
 }
 
 /* 탭 전환 */
@@ -802,7 +810,7 @@ function registerExtracted(i){
   const set=extractedSets[i];
   if(!set)return;
   if(pushSet(curSrc,set)){
-    renderList(curSrc);updStats();analyzeAll();saveToLS();renderAddedPreview();
+    renderList(curSrc);updStats();autoAnalyze();saveToLS();renderAddedPreview();
     const btn=document.getElementById('extreg_'+i);
     if(btn){btn.textContent='✓ 등록됨';btn.className='ext-reg-btn done';}
     showToast(`${SOURCES.find(s=>s.id===curSrc).label}에 등록되었습니다`);
@@ -821,7 +829,7 @@ function registerAllExtracted(){
     }
   });
   if(added){
-    renderList(curSrc);updStats();analyzeAll();saveToLS();renderAddedPreview();
+    renderList(curSrc);updStats();autoAnalyze();saveToLS();renderAddedPreview();
     showToast(`${added}개 세트가 등록되었습니다`);
   } else {
     showToast('모두 이미 등록된 세트입니다.');
@@ -937,7 +945,7 @@ function addSelSet(){
       clearSel();
       try{renderList(curSrc);}catch(e){console.error('renderList',e);}
       try{updStats();}catch(e){console.error('updStats',e);}
-      try{analyzeAll();}catch(e){console.error('analyzeAll',e);}
+      try{autoAnalyze();}catch(e){console.error('analyzeAll',e);}
       try{saveToLS();}catch(e){console.error('saveToLS',e);}
       try{renderAddedPreview();}catch(e){console.error('renderAddedPreview',e);}
       showToast((SOURCES.find(s=>s.id===curSrc)||{label:'출처'}).label+'에 세트가 추가되었습니다');
@@ -1104,7 +1112,7 @@ function saveEditSet(){
   S.sets[editSrc][editIdx]=newSet;
   renderList(editSrc);
   updStats();
-  analyzeAll();
+  autoAnalyze();
   saveToLS();
 
   showToast(`${SOURCES.find(s=>s.id===editSrc).label} ${editIdx+1}번째 세트가 수정되었습니다`);
@@ -1145,6 +1153,16 @@ function toSets(nums){
   for(let i=0;i+5<nums.length;i+=6)res.push([...nums.slice(i,i+6)].sort((a,b)=>a-b));
   if(!res.length&&nums.length>=1&&nums.length<=6)res.push([...nums].sort((a,b)=>a-b));
   return res;
+}
+
+/* ── 실시간 자동 교차 분석 헬퍼 ── */
+function autoAnalyze(){
+  const selected=SOURCES.filter(s=>S.active[s.id]);
+  const missing=selected.filter(s=>S.sets[s.id].length===0);
+  analyzeAll();
+  if(selected.length>=2 && missing.length===0){
+    showToast('교차 분석이 업데이트되었습니다.');
+  }
 }
 
 /* ── 교차 분석 버튼 클릭 시 호출 ── */
