@@ -245,6 +245,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ext-reg-btn:active{background:#0C447C}
 .ext-reg-btn.done{background:#e8e8e4;color:#aaa;pointer-events:none}
 
+/* 다중 이미지 처리 목록 */
+.img-queue-item{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.img-queue-header{display:flex;align-items:center;gap:8px}
+.img-queue-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid #eee}
+.img-queue-info{flex:1;min-width:0}
+.img-queue-name{font-size:11px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.img-queue-status{font-size:11px;color:#aaa;margin-top:2px}
+.img-queue-balls{display:flex;gap:3px;flex-wrap:wrap;padding:4px 0}
+
 /* 모달 */
 .modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:300;padding:20px}
 .modal{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%}
@@ -334,40 +343,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <!-- claude.ai 미리보기 환경 안내 -->
       <div id="sandboxWarning" style="display:none;background:#FFF8E6;border:1px solid #F5A623;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#7A4F00;line-height:1.6">
         <div style="font-weight:600;margin-bottom:4px">⚠️ 이미지 인식을 사용하려면 파일을 다운로드하세요</div>
-        <div>현재 Claude.ai 미리보기 환경에서는 외부 네트워크가 차단되어 이미지 인식이 작동하지 않습니다.<br>
-        우측 상단 <strong>다운로드</strong> 버튼으로 HTML 파일을 저장한 뒤 브라우저에서 직접 열어 사용해 주세요.</div>
+        <div>현재 Claude.ai 미리보기 환경에서는 외부 네트워크가 차단되어 이미지 인식이 작동하지 않습니다.</div>
       </div>
 
       <label class="upload-box" for="imgFileInput" id="uploadBoxLabel">
         <div class="upload-icon">📁</div>
-        <div class="upload-title">이미지를 선택하세요</div>
-        <div class="upload-sub">로또 응모내역 캡처 이미지를 업로드하세요</div>
-        <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImgUpload(this)">
+        <div class="upload-title">이미지를 선택하세요 (최대 5개)</div>
+        <div class="upload-sub">여러 장 동시 선택 가능 · 로또 응모내역 캡처</div>
+        <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none" onchange="handleMultiImgUpload(this)">
       </label>
 
-      <!-- 이미지 미리보기 -->
-      <div id="imgPreviewWrap" style="display:none;margin-top:12px">
-        <img id="imgPreview" style="width:100%;border-radius:10px;border:1px solid #e8e8e4;max-height:220px;object-fit:contain;background:#f8f8f6">
-        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;justify-content:center" onclick="resetImgUpload()">🔄 다른 이미지 선택</button>
+      <!-- 다중 이미지 처리 목록 -->
+      <div id="imgQueueWrap" style="display:none;margin-top:12px">
+        <div id="imgQueueList" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="resetImgUpload()">🔄 다시 선택</button>
+          <button class="btn btn-primary btn-sm" id="batchRegBtn" style="flex:2;justify-content:center;display:none" onclick="batchRegisterAll()">✅ 전체 등록</button>
+        </div>
       </div>
 
-      <!-- 분석 로딩 -->
+      <!-- 분석 로딩 (단일) -->
       <div id="ocrLoading" style="display:none" class="ocr-loading">
         <div class="spinner"></div>
         <div id="ocrMsg">이미지 분석 중...</div>
         <div class="prog-bar"><div class="prog-fill" id="ocrProg"></div></div>
         <div style="font-size:10px;color:#aaa;margin-top:6px">번호를 인식하고 있습니다</div>
       </div>
-
-      <!-- 추출된 번호 목록 - 세트별 확인·등록 -->
-      <div id="extractedSetsWrap" style="display:none;margin-top:14px">
-        <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-          <span id="extractedTitle">인식된 번호 세트</span>
-          <button class="btn btn-primary btn-sm" onclick="registerAllExtracted()">전체 등록</button>
-        </div>
-        <div id="extractedSetsList"></div>
-      </div>
-
     </div>
 
     <!-- 직접입력 탭 -->
@@ -640,25 +641,18 @@ function openInputPage(sid){
 
 /* 인식된 세트 미등록 여부 확인 후 닫기 */
 function checkAndClose(){
-  /* 전체 등록 완료했거나, 인식된 세트가 없으면 바로 닫기 */
-  if(allRegisteredFlag || extractedSets.length===0){
-    closeInputPage();
-    return;
-  }
-  /* 인식된 세트 중 미등록 세트 확인 */
-  const unregistered=extractedSets.filter((set,i)=>{
-    const btn=document.getElementById('extreg_'+i);
-    return !btn || !btn.classList.contains('done');
-  });
-  if(unregistered.length>0){
+  if(allRegisteredFlag){closeInputPage();return;}
+  /* 인식된 세트 중 등록 안 된 것 확인 */
+  const totalSets=imgQueueData.reduce((a,d)=>a+d.sets.length,0);
+  if(totalSets>0){
     document.getElementById('modalContainer').innerHTML=`
       <div class="modal-wrap" onclick="if(event.target===this)closeM()">
         <div class="modal">
           <h3>📋 번호 등록 확인</h3>
-          <p>인식된 <strong>${unregistered.length}개</strong> 세트가 아직 등록되지 않았습니다.<br>전체 등록 후 닫으시겠습니까?</p>
+          <p>인식된 <strong>${totalSets}개</strong> 세트가 아직 등록되지 않았습니다.<br>전체 등록 후 닫으시겠습니까?</p>
           <div class="modal-btns">
             <button class="btn btn-ghost btn-sm" onclick="closeM();closeInputPage()">그냥 닫기</button>
-            <button class="btn btn-primary btn-sm" onclick="closeM();registerAllExtracted();closeInputPage()">전체 등록 후 닫기</button>
+            <button class="btn btn-primary btn-sm" onclick="closeM();batchRegisterAll();closeInputPage()">전체 등록 후 닫기</button>
           </div>
         </div>
       </div>`;
@@ -689,11 +683,146 @@ function switchTab(tab){
   /* 이미지 탭으로 돌아올 때 초기 업로드 상태 유지 */
 }
 
-/* ── 이미지 업로드 ── */
+/* ── 다중 이미지 업로드 (최대 5개) ── */
 let extractedSets=[];
-let allRegisteredFlag=false; /* 전체 등록 완료 시 true */
+let allRegisteredFlag=false;
+let imgQueueData=[]; /* [{file, dataUrl, sets, status}] */
 
 const PROXY_URL='https://lotto-proxy.maybee1004.workers.dev';
+
+async function handleMultiImgUpload(input){
+  const files=Array.from(input.files).slice(0,5);
+  if(!files.length)return;
+  input.value='';
+
+  document.getElementById('uploadBoxLabel').style.display='none';
+  document.getElementById('imgQueueWrap').style.display='block';
+  document.getElementById('batchRegBtn').style.display='none';
+  allRegisteredFlag=false;
+  extractedSets=[];
+  imgQueueData=[];
+
+  const list=document.getElementById('imgQueueList');
+  list.innerHTML='';
+
+  /* 각 파일 아이템 초기 렌더 */
+  for(let i=0;i<files.length;i++){
+    imgQueueData.push({file:files[i],dataUrl:null,sets:[],status:'pending'});
+    list.innerHTML+=`
+      <div class="img-queue-item" id="qi_${i}">
+        <div class="img-queue-header">
+          <img class="img-queue-thumb" id="qt_${i}" src="">
+          <div class="img-queue-info">
+            <div class="img-queue-name">${files[i].name||'이미지 '+(i+1)}</div>
+            <div class="img-queue-status" id="qs_${i}">⏳ 대기 중...</div>
+          </div>
+        </div>
+        <div class="img-queue-balls" id="qb_${i}" style="display:none"></div>
+      </div>`;
+  }
+
+  /* 순차 처리 */
+  for(let i=0;i<files.length;i++){
+    await processQueueItem(i);
+  }
+
+  /* 전체 등록 버튼 표시 */
+  const totalSets=imgQueueData.reduce((a,d)=>a+d.sets.length,0);
+  if(totalSets>0){
+    const btn=document.getElementById('batchRegBtn');
+    btn.textContent=`✅ 전체 등록 (${totalSets}개 세트)`;
+    btn.style.display='flex';
+  }
+}
+
+async function processQueueItem(i){
+  const item=imgQueueData[i];
+  const statusEl=document.getElementById('qs_'+i);
+  const thumbEl=document.getElementById('qt_'+i);
+  const ballsEl=document.getElementById('qb_'+i);
+
+  try{
+    statusEl.textContent='🔄 이미지 압축 중...';
+    const dataUrl=await resizeImageToBase64(item.file,800,0.75);
+    item.dataUrl=dataUrl;
+    thumbEl.src=dataUrl;
+
+    statusEl.textContent='🔍 번호 인식 중...';
+    const b64=dataUrl.split(',')[1];
+
+    const fetchPromise=fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:600,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+            {type:'text',text:`이 이미지에서 로또 번호 세트를 모두 찾아주세요.\n규칙:\n- 각 세트는 1~45 사이의 숫자 6개입니다\n- 세트가 여러 개면 줄바꿈으로 구분하세요\n- 숫자만 공백으로 나열하고 다른 설명은 쓰지 마세요\n출력 예시:\n14 20 28 42 43 45\n12 14 19 37 38 40`}
+          ]
+        }]
+      })
+    });
+    const timeoutPromise=new Promise(function(_,rej){
+      setTimeout(function(){rej(new Error('TIMEOUT'));},30000);
+    });
+    const resp=await Promise.race([fetchPromise,timeoutPromise]);
+
+    if(!resp.ok)throw new Error('서버 오류 '+resp.status);
+    const data=await resp.json();
+    if(data.error)throw new Error(data.error.message||'API 오류');
+
+    const text=(data.content?.filter(c=>c.type==='text').map(c=>c.text).join('\n')||'').trim();
+    const sets=[];
+    for(const line of text.split('\n').filter(l=>l.trim())){
+      const nums=[...new Set(line.replace(/[^0-9\s]/g,' ').trim().split(/\s+/).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=45))];
+      if(nums.length===6)sets.push(nums.sort((a,b)=>a-b));
+      else if(nums.length>6){
+        for(let j=0;j+5<nums.length;j+=6)sets.push(nums.slice(j,j+6).sort((a,b)=>a-b));
+      }
+    }
+    item.sets=sets;
+    item.status='done';
+
+    if(sets.length){
+      statusEl.textContent=`✅ ${sets.length}개 세트 인식`;
+      statusEl.style.color='#1D9E75';
+      ballsEl.style.display='flex';
+      ballsEl.innerHTML=sets.map(set=>
+        `<div style="display:flex;gap:2px;margin-bottom:3px">${set.map(n=>`<div class="ball b26 ${bc(n)}">${n}</div>`).join('')}</div>`
+      ).join('');
+    } else {
+      statusEl.textContent='⚠️ 번호 미인식';
+      statusEl.style.color='#aaa';
+    }
+  }catch(e){
+    item.status='error';
+    statusEl.textContent='❌ 오류: '+e.message;
+    statusEl.style.color='#E24B4A';
+  }
+}
+
+function batchRegisterAll(){
+  let total=0;
+  for(const item of imgQueueData){
+    for(const set of item.sets){
+      if(pushSet(curSrc,set))total++;
+    }
+  }
+  if(total>0){
+    renderList(curSrc);updStats();autoAnalyze();saveToLS();renderAddedPreview();
+    showToast(`${total}개 세트가 등록되었습니다`);
+  } else {
+    showToast('모두 이미 등록된 세트입니다.');
+  }
+  allRegisteredFlag=true;
+  document.getElementById('batchRegBtn').style.display='none';
+}
+
+/* 기존 단일 handleImgUpload 호환용 (내부에서 사용 안 함) */
+async function handleImgUpload(input){ await handleMultiImgUpload(input); }
 
 /* 이미지를 Canvas로 리사이즈 → base64 반환 (FileReader 방식, 모바일 Safari 호환) */
 function resizeImageToBase64(file, maxPx, quality){
@@ -882,11 +1011,12 @@ function registerAllExtracted(){
 
 function resetImgUpload(){
   document.getElementById('uploadBoxLabel').style.display='block';
-  document.getElementById('imgPreviewWrap').style.display='none';
-  document.getElementById('extractedSetsWrap').style.display='none';
-  document.getElementById('extractedSetsList').innerHTML='';
+  document.getElementById('imgQueueWrap').style.display='none';
+  document.getElementById('imgQueueList').innerHTML='';
+  document.getElementById('batchRegBtn').style.display='none';
   document.getElementById('imgFileInput').value='';
   extractedSets=[];
+  imgQueueData=[];
   allRegisteredFlag=false;
 }
 
