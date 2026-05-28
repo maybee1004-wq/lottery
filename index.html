@@ -348,7 +348,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       <label class="upload-box" for="imgFileInput" id="uploadBoxLabel">
         <div class="upload-icon">📁</div>
-        <div class="upload-title">이미지를 선택하세요 (최대 5개)</div>
+        <div class="upload-title">이미지를 선택하세요 (최대 10개)</div>
         <div class="upload-sub">여러 장 동시 선택 가능 · 로또 응모내역 캡처</div>
         <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none" onchange="handleMultiImgUpload(this)">
       </label>
@@ -691,7 +691,7 @@ let imgQueueData=[]; /* [{file, dataUrl, sets, status}] */
 const PROXY_URL='https://lotto-proxy.maybee1004.workers.dev';
 
 async function handleMultiImgUpload(input){
-  const files=Array.from(input.files).slice(0,5);
+  const files=Array.from(input.files).slice(0,10);
   if(!files.length)return;
   input.value='';
 
