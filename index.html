@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>로또 교차 출처 분석기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:14px;overflow-x:hidden}
+
+/* ── 메인 앱 ── */
+.app{padding:12px;max-width:1200px;margin:0 auto}
+
+.app-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #e8e8e4}
+.app-header-title{font-size:16px;font-weight:700;color:#111}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+
+.stats-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.stat-badge{background:#fff;border:1px solid #e8e8e4;border-radius:8px;padding:5px 12px;font-size:12px;color:#666}
+.stat-badge b{color:#111;margin-left:2px}
+
+.filter-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.filter-chip{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;border:1px solid #ddd;font-size:12px;cursor:pointer;user-select:none;background:#fff;color:#555;-webkit-tap-highlight-color:transparent}
+.filter-chip.on{border-color:#378ADD;background:#E6F1FB;color:#0C447C}
+
+/* 결과 패널 */
+.result-panel{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:16px;margin-bottom:10px}
+.rp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.rp-title{font-size:12px;font-weight:600;color:#666;display:flex;align-items:center;gap:5px}
+.legend{display:flex;gap:10px;font-size:11px;color:#888;align-items:center}
+.leg-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.result-balls{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:36px}
+/* 추천 세트 목록 */
+.rec-set-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#f8f8f6;margin-bottom:10px;flex-wrap:wrap}
+.rec-set-label{font-size:11px;color:#999;min-width:52px;flex-shrink:0}
+.rec-set-balls{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding-left:4px}
+.rec-set-divider{width:1px;height:24px;background:#e0e0dc;flex-shrink:0;margin:0 4px}
+/* 코어 볼 강조 링 */
+.b-core{box-shadow:0 0 0 2.5px #fff,0 0 0 4.5px #FFD600}
+.narrative{font-size:11px;color:#777;line-height:1.6;border-top:1px solid #f0f0ec;padding-top:10px;margin-top:10px}
+
+/* 볼 */
+.ball{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;color:#fff}
+.b34{width:34px;height:34px;font-size:13px}
+.b26{width:26px;height:26px;font-size:11px}
+.bc1{background:#F5A623}
+.bc2{background:#1E6FD9}
+.bc3{background:#E8394A}
+.bc4{background:#9B9B9B}
+.bc5{background:#2DB400}
+.b-cross2{box-shadow:0 0 0 3px #fff,0 0 0 5px #FFD600}
+.b-cross3{box-shadow:0 0 0 3px #fff,0 0 0 5px #FF4400}
+.b-white{background:#fff;border:1px solid #ddd;color:#555}
+
+/* ── 보드 4열 ── */
+.boards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+@media(max-width:680px){.boards{display:flex;flex-direction:column;gap:6px}}
+@media(max-width:680px){.board{min-height:auto}}
+
+.board{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;min-height:140px;transition:opacity 0.2s}
+.board.hidden{display:none}
+.board-header{display:flex;align-items:center;justify-content:space-between}
+.board-title{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px}
+.src-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.set-badge{font-size:11px;color:#888;background:#f5f5f0;padding:2px 8px;border-radius:10px}
+
+.sets-list{display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto;max-height:160px}
+.set-row{display:flex;align-items:center;gap:4px;padding:6px 8px;background:#f5f5f0;border-radius:8px;position:relative}
+.set-row:hover .edit-btn{opacity:1}
+.set-idx{font-size:11px;color:#bbb;min-width:16px}
+.set-balls{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+.set-actions{display:flex;gap:2px;align-items:center;flex-shrink:0}
+.edit-btn{background:none;border:none;cursor:pointer;color:#ccc;padding:2px 5px;font-size:13px;line-height:1;-webkit-tap-highlight-color:transparent;opacity:0;transition:opacity .15s, color .15s;border-radius:4px;display:flex;align-items:center}
+.edit-btn:hover{color:#999;background:none}
+/* 모바일: 편집 버튼 항상 표시, 삭제 버튼 숨김 */
+@media(max-width:680px){
+  .edit-btn{opacity:1}
+  .set-row .del-btn{display:none}
+}
+
+/* ── 수정 페이지 (슬라이드업, z-index 입력페이지보다 높음) ── */
+.edit-page{position:fixed;inset:0;background:#f5f5f0;z-index:300;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 0.3s cubic-bezier(.32,.72,0,1)}
+.edit-page.open{transform:translateY(0)}
+.edit-page .ip-body{flex:1;overflow-y:auto;padding:16px}
+.edit-orig-wrap{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:14px;margin-bottom:14px}
+.edit-orig-label{font-size:11px;color:#999;margin-bottom:8px;font-weight:600}
+.edit-orig-balls{display:flex;gap:5px;flex-wrap:wrap}
+
+/* 모바일: 보드 내 볼 크기 확대 */
+@media(max-width:680px){
+  .set-row{padding:8px 10px;gap:6px;border-radius:10px}
+  .set-idx{font-size:12px;min-width:18px}
+  .set-balls{gap:5px}
+  .set-balls .b26{width:36px;height:36px;font-size:13px}
+  .board-title{font-size:14px}
+  .set-badge{font-size:12px}
+  .board-add-btn{padding:10px;font-size:12px}
+  .empty-msg{font-size:12px;padding:20px 0}
+}
+
+/* 하단 */
+.bottom-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.btn{padding:9px 16px;border-radius:8px;border:1px solid #ddd;font-size:13px;cursor:pointer;background:#fff;color:#333;display:inline-flex;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent;-webkit-appearance:none}
+.btn:active{opacity:.8}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-primary{background:#185FA5;color:#fff;border-color:#185FA5}
+.btn-danger{border-color:#F09595;color:#A32D2D}
+.btn-danger:active{background:#FCEBEB}
+.btn-ghost{background:transparent;border-color:#ddd;color:#555}
+
+/* ── 입력 페이지 (슬라이드업 전체화면) ── */
+.input-page{position:fixed;inset:0;background:#f5f5f0;z-index:200;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 0.3s cubic-bezier(.32,.72,0,1)}
+.input-page.open{transform:translateY(0)}
+
+.ip-header{background:#fff;border-bottom:1px solid #e8e8e4;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.ip-title{font-size:15px;font-weight:700;flex:1}
+.ip-source-sel{display:flex;gap:6px;padding:12px 16px;background:#fff;border-bottom:1px solid #e8e8e4;flex-wrap:wrap;flex-shrink:0}
+.src-chip{padding:5px 14px;border-radius:20px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;color:#555;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:5px}
+.src-chip.on{color:#fff;border-color:transparent}
+
+.ip-body{flex:1;overflow-y:auto;padding:16px}
+
+/* 탭 */
+.ip-tabs{display:flex;gap:0;border:1px solid #ddd;border-radius:10px;overflow:hidden;margin-bottom:16px;background:#f5f5f0}
+.ip-tab{flex:1;padding:10px;font-size:13px;text-align:center;cursor:pointer;background:transparent;border:none;color:#888;-webkit-tap-highlight-color:transparent;font-weight:500}
+.ip-tab.on{background:#fff;color:#185FA5;font-weight:600}
+
+/* 이미지 업로드 영역 */
+.upload-box{border:2px dashed #d0d0c8;border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;background:#fafaf8;-webkit-tap-highlight-color:transparent;display:block}
+.upload-box:active{background:#f0f0eb}
+.upload-icon{font-size:36px;margin-bottom:8px}
+.upload-title{font-size:14px;font-weight:600;color:#444;margin-bottom:4px}
+.upload-sub{font-size:12px;color:#aaa}
+
+/* OCR 로딩 */
+.ocr-loading{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:20px;text-align:center;margin-top:12px}
+.spinner{width:24px;height:24px;border:3px solid #eee;border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.prog-bar{width:100%;height:5px;background:#eee;border-radius:3px;overflow:hidden;margin-top:8px}
+.prog-fill{height:100%;background:#378ADD;border-radius:3px;transition:width .25s;width:0%}
+
+/* 직접입력 영역 */
+.num-pad-wrap{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:14px}
+.num-display{display:flex;gap:6px;flex-wrap:wrap;min-height:44px;align-items:center;padding:10px;background:#f8f8f6;border-radius:8px;margin-bottom:12px;border:1px solid #eee}
+.num-display-hint{font-size:12px;color:#ccc}
+.num-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:10px}
+.num-key{width:100%;aspect-ratio:1;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;transition:opacity .1s}
+.num-key.disabled{opacity:.3;pointer-events:none}
+.num-actions{display:flex;gap:8px}
+
+/* 추가된 세트 미리보기 */
+.added-sets-wrap{margin-top:16px}
+.added-sets-title{font-size:12px;font-weight:600;color:#888;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.added-set-row{display:flex;align-items:center;gap:4px;padding:6px 8px;background:#fff;border:1px solid #e8e8e4;border-radius:8px;margin-bottom:4px}
+.added-set-balls{display:flex;gap:3px;flex:1;flex-wrap:wrap}
+
+/* 알림 토스트 */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:all .25s;z-index:500;white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* 추출된 세트 목록 */
+.ext-set-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border:1px solid #e8e8e4;border-radius:10px;margin-bottom:6px}
+.ext-set-balls{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+.ext-reg-btn{padding:5px 12px;font-size:12px;border-radius:8px;border:none;background:#185FA5;color:#fff;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.ext-reg-btn:active{background:#0C447C}
+.ext-reg-btn.done{background:#e8e8e4;color:#aaa;pointer-events:none}
+
+/* 모달 */
+.modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:300;padding:20px}
+.modal{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:8px}
+.modal p{font-size:13px;color:#555;margin-bottom:16px;line-height:1.6}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<!-- ── 메인 화면 ── -->
+<div class="app">
+  <div class="app-header">
+    <span style="font-size:20px">🎱</span>
+    <span class="app-header-title">로또 교차 출처 분석기</span>
+    <div class="header-right">
+      <button class="btn btn-sm btn-ghost" onclick="shareUrl()" id="shareBtn">🔗 공유</button>
+      <button class="btn btn-sm btn-primary" onclick="openInputPage(null)">✏️ 번호 입력</button>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-badge">전체 세트 <b id="totalCount">0</b>개</div>
+    <div class="stat-badge">분석 출처 <b id="activeSourceCount">4</b>개</div>
+    <div class="stat-badge">추천 <b id="analyzedCount">-</b></div>
+  </div>
+  <div class="filter-row" id="filterRow"></div>
+
+  <div class="result-panel">
+    <div class="rp-header">
+      <div class="rp-title">🏆 교차 분석 추천 번호</div>
+      <div class="legend">
+        <div style="display:flex;align-items:center;gap:3px"><div class="leg-dot" style="background:#FFD600;border-radius:50%"></div><span>코어(공통)</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div class="leg-dot" style="background:#e8e8e4;border-radius:50%;border:1px solid #ccc"></div><span>보완</span></div>
+      </div>
+    </div>
+    <div id="resultSets">
+      <span style="font-size:11px;color:#bbb">번호를 입력하면 결과가 표시됩니다</span>
+    </div>
+    <div class="narrative" id="narrative" style="display:none"></div>
+  </div>
+
+  <div class="boards" id="boardsGrid"></div>
+
+  <div class="bottom-bar">
+    <span style="font-size:11px;color:#aaa">출처별 번호를 입력하고 교차 분석을 실행하세요</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-primary" onclick="analyzeAll()">📊 교차 분석</button>
+      <button class="btn btn-danger" onclick="confirmReset()">🔄 초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 번호 입력 페이지 ── -->
+<div class="input-page" id="inputPage">
+  <div class="ip-header">
+    <button class="btn btn-ghost btn-sm" onclick="closeInputPage()">← 돌아가기</button>
+    <span class="ip-title">번호 입력</span>
+    <button class="btn btn-sm btn-primary" onclick="confirmAddAll()" id="confirmBtn">완료</button>
+  </div>
+
+  <div class="ip-source-sel" id="ipSourceSel"></div>
+
+  <div class="ip-body">
+    <!-- 탭 -->
+    <div class="ip-tabs">
+      <button class="ip-tab on" id="tabImg" onclick="switchTab('img')">📷 이미지 업로드</button>
+      <button class="ip-tab" id="tabMan" onclick="switchTab('man')">🔢 직접 입력</button>
+    </div>
+
+    <!-- 이미지 탭 -->
+    <div id="imgTab">
+      <!-- claude.ai 미리보기 환경 안내 -->
+      <div id="sandboxWarning" style="display:none;background:#FFF8E6;border:1px solid #F5A623;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#7A4F00;line-height:1.6">
+        <div style="font-weight:600;margin-bottom:4px">⚠️ 이미지 인식을 사용하려면 파일을 다운로드하세요</div>
+        <div>현재 Claude.ai 미리보기 환경에서는 외부 네트워크가 차단되어 이미지 인식이 작동하지 않습니다.<br>
+        우측 상단 <strong>다운로드</strong> 버튼으로 HTML 파일을 저장한 뒤 브라우저에서 직접 열어 사용해 주세요.</div>
+      </div>
+
+      <label class="upload-box" for="imgFileInput" id="uploadBoxLabel">
+        <div class="upload-icon">📁</div>
+        <div class="upload-title">이미지를 선택하세요</div>
+        <div class="upload-sub">로또 응모내역 캡처 이미지를 업로드하세요</div>
+        <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImgUpload(this)">
+      </label>
+
+      <!-- 이미지 미리보기 -->
+      <div id="imgPreviewWrap" style="display:none;margin-top:12px">
+        <img id="imgPreview" style="width:100%;border-radius:10px;border:1px solid #e8e8e4;max-height:220px;object-fit:contain;background:#f8f8f6">
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;justify-content:center" onclick="resetImgUpload()">🔄 다른 이미지 선택</button>
+      </div>
+
+      <!-- 분석 로딩 -->
+      <div id="ocrLoading" style="display:none" class="ocr-loading">
+        <div class="spinner"></div>
+        <div id="ocrMsg">이미지 분석 중...</div>
+        <div class="prog-bar"><div class="prog-fill" id="ocrProg"></div></div>
+        <div style="font-size:10px;color:#aaa;margin-top:6px">번호를 인식하고 있습니다</div>
+      </div>
+
+      <!-- 추출된 번호 목록 - 세트별 확인·등록 -->
+      <div id="extractedSetsWrap" style="display:none;margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+          <span id="extractedTitle">인식된 번호 세트</span>
+          <button class="btn btn-primary btn-sm" onclick="registerAllExtracted()">전체 등록</button>
+        </div>
+        <div id="extractedSetsList"></div>
+      </div>
+
+    </div>
+
+    <!-- 직접입력 탭 -->
+    <div id="manTab" style="display:none">
+      <div class="num-pad-wrap">
+        <div class="num-display" id="numDisplay">
+          <span class="num-display-hint">숫자를 선택하세요 (최대 6개)</span>
+        </div>
+        <div class="num-grid" id="numGrid"></div>
+        <div class="num-actions">
+          <button class="btn btn-ghost btn-sm" onclick="clearSel()" style="flex:1">지우기</button>
+          <button class="btn btn-primary btn-sm" onclick="addSelSet()" style="flex:2">세트 추가 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 현재 출처 등록된 세트 미리보기 -->
+    <div class="added-sets-wrap" id="addedSetsWrap"></div>
+  </div>
+</div>
+
+<!-- ── 번호 수정 페이지 ── -->
+<div class="edit-page" id="editPage">
+  <div class="ip-header">
+    <button class="btn btn-ghost btn-sm" onclick="closeEditPage()">← 돌아가기</button>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+      <span class="ip-title" style="font-size:14px">번호 수정</span>
+      <span id="editPageInfo" style="font-size:11px;color:#aaa"></span>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="editPageDelete()" style="margin-right:6px">삭제</button>
+    <button class="btn btn-sm btn-primary" onclick="saveEditSet()">저장</button>
+  </div>
+  <div class="ip-body">
+    <!-- 기존 번호 표시 -->
+    <div class="edit-orig-wrap">
+      <div class="edit-orig-label">기존 번호</div>
+      <div class="edit-orig-balls" id="editOrigBalls"></div>
+    </div>
+    <!-- 수정용 숫자패드 (입력 페이지와 동일 구조) -->
+    <div class="num-pad-wrap">
+      <div class="num-display" id="editNumDisplay">
+        <span class="num-display-hint">수정할 번호 6개를 선택하세요</span>
+      </div>
+      <div class="num-grid" id="editNumGrid"></div>
+      <div class="num-actions">
+        <button class="btn btn-ghost btn-sm" onclick="clearEditSel()" style="flex:1">지우기</button>
+        <button class="btn btn-primary btn-sm" onclick="saveEditSet()" style="flex:2">수정 완료 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="modalContainer"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+const SOURCES=[
+  {id:'A',label:'출처 A',color:'#378ADD'},
+  {id:'B',label:'출처 B',color:'#1D9E75'},
+  {id:'C',label:'출처 C',color:'#D85A30'},
+  {id:'D',label:'출처 D',color:'#9B59B6'},
+];
+const S={sets:{A:[],B:[],C:[],D:[]},active:{A:true,B:true,C:true,D:true}};
+let curSrc='A'; // 입력 페이지 현재 선택 출처
+let selNums=[]; // 직접입력 선택 숫자
+
+/* ── 초기화 ── */
+function init(){
+  /* 1순위: URL 파라미터에서 데이터 로드 */
+  const fromURL=loadFromURL();
+  /* 2순위: URL 없으면 LocalStorage에서 로드 */
+  if(!fromURL)loadFromLS();
+
+  renderFilter();
+  renderBoards();
+  /* 저장된 세트 데이터를 보드에 반영 */
+  SOURCES.forEach(s=>renderList(s.id));
+  renderSourceSel();
+  renderNumGrid();
+  updStats();
+  if(fromURL||SOURCES.some(s=>S.sets[s.id].length>0))analyzeAll();
+
+  /* claude.ai 미리보기/샌드박스 환경 감지 → 이미지 업로드 안내 표시 */
+  const isSandbox = (
+    window.location.protocol === 'blob:' ||
+    window.location.hostname === '' ||
+    window.location.href.includes('claude.ai') ||
+    window.location.href.startsWith('blob:') ||
+    (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') ||
+    document.referrer.includes('claude.ai')
+  );
+  if(isSandbox){
+    const w=document.getElementById('sandboxWarning');
+    if(w) w.style.display='block';
+  }
+}
+
+/* ── 필터 ── */
+function renderFilter(){
+  document.getElementById('filterRow').innerHTML=
+    '<span style="font-size:11px;color:#999;flex-shrink:0">분석 대상:</span>'+
+    SOURCES.map(s=>`<span class="filter-chip${S.active[s.id]?' on':''}" id="chip_${s.id}" onclick="toggleSrc('${s.id}')">
+      <span style="width:7px;height:7px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.label}
+    </span>`).join('');
+}
+function toggleSrc(id){
+  S.active[id]=!S.active[id];
+  document.getElementById('chip_'+id).className='filter-chip'+(S.active[id]?' on':'');
+  document.getElementById('activeSourceCount').textContent=SOURCES.filter(s=>S.active[s.id]).length;
+  /* 보드 숨김/표시 (데이터는 유지) */
+  const board=document.getElementById('board_'+id);
+  if(board)board.className='board'+(S.active[id]?'':' hidden');
+  analyzeAll();
+}
+
+/* 번호대별 CSS 클래스 */
+function bc(n){
+  if(n<=9)return 'bc1';
+  if(n<=19)return 'bc2';
+  if(n<=29)return 'bc3';
+  if(n<=39)return 'bc4';
+  return 'bc5';
+}
+function ballHtml(n,size){
+  return `<div class="ball ${size} ${bc(n)}">${n}</div>`;
+}
+
+/* ── 보드 (세트 목록 + 입력 버튼만) ── */
+function renderBoards(){
+  document.getElementById('boardsGrid').innerHTML=SOURCES.map(s=>`
+    <div class="board${S.active[s.id]?'':' hidden'}" id="board_${s.id}">
+      <div class="board-header">
+        <div class="board-title"><span class="src-dot" style="background:${s.color}"></span>${s.label}</div>
+        <span class="set-badge" id="cnt_${s.id}">0 세트</span>
+      </div>
+      <div class="sets-list" id="list_${s.id}"><div class="empty-msg">등록된 번호 없음</div></div>
+    </div>`).join('');
+}
+
+function renderList(sid){
+  const sets=S.sets[sid];
+  document.getElementById('cnt_'+sid).textContent=sets.length+' 세트';
+  document.getElementById('list_'+sid).innerHTML=sets.length
+    ?sets.map((set,i)=>`
+      <div class="set-row">
+        <span class="set-idx">${i+1}</span>
+        <div class="set-balls">${set.map(n=>ballHtml(n,'b26')).join('')}</div>
+        <div class="set-actions">
+          <button class="edit-btn" onclick="openEditPage('${sid}',${i})" title="수정" aria-label="수정">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
+              <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+              <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
+            </svg>
+          </button>
+          <button class="del-btn" onclick="confirmDelSet('${sid}',${i},'main')" aria-label="삭제">✕</button>
+        </div>
+      </div>`).join('')
+    :'<div class="empty-msg">등록된 번호 없음</div>';
+}
+
+function confirmDelSet(sid,i,from){
+  const src=SOURCES.find(s=>s.id===sid);
+  const set=S.sets[sid][i];
+  const ballsHtml=set.map(n=>`<div class="ball b34 ${bc(n)}">${n}</div>`).join('');
+  document.getElementById('modalContainer').innerHTML=`
+    <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+      <div class="modal">
+        <h3>🗑️ 번호 세트 삭제</h3>
+        <p style="margin-bottom:10px">아래 번호 세트를 삭제할까요?</p>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;padding:10px;background:#f8f8f6;border-radius:10px;margin-bottom:14px">
+          ${ballsHtml}
+        </div>
+        <p style="font-size:12px;color:#aaa;text-align:center;margin-bottom:16px">
+          <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0ec;padding:3px 10px;border-radius:20px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${src.color};display:inline-block"></span>${src.label} · ${i+1}번째 세트
+          </span>
+        </p>
+        <div class="modal-btns">
+          <button class="btn btn-ghost btn-sm" onclick="closeM()">취소</button>
+          <button class="btn btn-danger btn-sm" onclick="delSet('${sid}',${i},'${from}')">삭제</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function delSet(sid,i,from){
+  S.sets[sid].splice(i,1);
+  renderList(sid);
+  updStats();
+  analyzeAll();
+  saveToLS();
+  renderAddedPreview();
+  closeM();
+}
+
+function updStats(){
+  document.getElementById('totalCount').textContent=SOURCES.reduce((a,s)=>a+S.sets[s.id].length,0);
+}
+
+/* ── 입력 페이지 ── */
+function renderSourceSel(){
+  document.getElementById('ipSourceSel').innerHTML=
+    '<span style="font-size:12px;color:#999;align-self:center;flex-shrink:0">출처 선택:</span>'+
+    SOURCES.map(s=>`<button class="src-chip${curSrc===s.id?' on':''}" id="schip_${s.id}"
+        style="${curSrc===s.id?'background:'+s.color+';':'color:'+s.color}"
+        onclick="selectSrc('${s.id}')"
+      ><span style="width:7px;height:7px;border-radius:50%;background:${curSrc===s.id?'rgba(255,255,255,.7)':s.color};display:inline-block"></span>${s.label}
+    </button>`).join('');
+}
+
+function selectSrc(id){
+  curSrc=id;
+  renderSourceSel();
+  renderAddedPreview();
+}
+
+function openInputPage(sid){
+  if(sid)curSrc=sid;
+  renderSourceSel();
+  clearSel();
+  renderAddedPreview();
+  resetImgUpload();
+  document.getElementById('inputPage').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeInputPage(){
+  document.getElementById('inputPage').classList.remove('open');
+  document.body.style.overflow='';
+  document.getElementById('imgFileInput').value='';
+  clearSel();
+  /* 입력 페이지 닫을 때 메인 보드 전체 갱신 */
+  SOURCES.forEach(s=>renderList(s.id));
+  updStats();
+  analyzeAll();
+}
+
+/* 탭 전환 */
+function switchTab(tab){
+  const isImg=tab==='img';
+  document.getElementById('imgTab').style.display=isImg?'block':'none';
+  document.getElementById('manTab').style.display=isImg?'none':'block';
+  document.getElementById('tabImg').className='ip-tab'+(isImg?' on':'');
+  document.getElementById('tabMan').className='ip-tab'+(isImg?'':' on');
+  /* 이미지 탭으로 돌아올 때 초기 업로드 상태 유지 */
+}
+
+/* ── 이미지 업로드 ── */
+let extractedSets=[];
+
+const PROXY_URL='https://lotto-proxy.maybee1004.workers.dev';
+
+/* 이미지를 Canvas로 리사이즈 → base64 반환 (FileReader 방식, 모바일 Safari 호환) */
+function resizeImageToBase64(file, maxPx, quality){
+  return new Promise((resolve, reject)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>reject(new Error('파일 읽기 실패'));
+    fr.onload=function(e){
+      const img=new Image();
+      img.onerror=()=>reject(new Error('이미지 디코딩 실패'));
+      img.onload=function(){
+        let w=img.width, h=img.height;
+        if(w>maxPx||h>maxPx){
+          if(w>h){h=Math.round(h*maxPx/w);w=maxPx;}
+          else{w=Math.round(w*maxPx/h);h=maxPx;}
+        }
+        const c=document.createElement('canvas');
+        c.width=w; c.height=h;
+        const ctx=c.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.src=e.target.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+async function handleImgUpload(input){
+  const file=input.files[0];
+  if(!file)return;
+  input.value='';
+
+  document.getElementById('uploadBoxLabel').style.display='none';
+  document.getElementById('imgPreviewWrap').style.display='block';
+  document.getElementById('extractedSetsWrap').style.display='none';
+  document.getElementById('extractedSetsList').innerHTML='';
+  extractedSets=[];
+
+  const loading=document.getElementById('ocrLoading');
+  const msg=document.getElementById('ocrMsg');
+  const prog=document.getElementById('ocrProg');
+  loading.style.display='block';
+  msg.textContent='이미지 준비 중...';
+  prog.style.width='10%';
+
+  try{
+    msg.textContent='이미지 압축 중...';
+    prog.style.width='20%';
+
+    /* 단계적 압축: 크기가 300KB 이하가 될 때까지 줄임 */
+    const MAX_B64_BYTES = 300 * 1024; // 300KB
+    const steps = [
+      {maxPx:800, quality:0.7},
+      {maxPx:640, quality:0.6},
+      {maxPx:480, quality:0.5},
+      {maxPx:360, quality:0.4},
+    ];
+    let dataUrl = null;
+    let b64 = null;
+    for(const step of steps){
+      dataUrl = await resizeImageToBase64(file, step.maxPx, step.quality);
+      b64 = dataUrl.split(',')[1];
+      if(b64.length <= MAX_B64_BYTES) break;
+    }
+
+    /* 미리보기 표시 */
+    document.getElementById('imgPreview').src=dataUrl;
+
+    const b64SizeKB = Math.round(b64.length * 0.75 / 1024);
+    msg.textContent=`번호 인식 중... (이미지 ${b64SizeKB}KB)`;
+    prog.style.width='45%';
+
+    const fetchPromise=fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:600,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+            {type:'text',text:`이 이미지에서 로또 번호 세트를 모두 찾아주세요.
+규칙:
+- 각 세트는 1~45 사이의 숫자 6개입니다
+- 세트가 여러 개면 줄바꿈으로 구분하세요
+- 숫자만 공백으로 나열하고 다른 설명은 쓰지 마세요
+출력 예시:
+14 20 28 42 43 45
+12 14 19 37 38 40`}
+          ]
+        }]
+      })
+    });
+    const timeoutPromise=new Promise((_,rej)=>
+      setTimeout(()=>rej(new Error('TIMEOUT')), 30000)
+    );
+
+    const resp=await Promise.race([fetchPromise, timeoutPromise]);
+    prog.style.width='80%';
+
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message||`서버 오류 (${resp.status})`);
+    }
+
+    const data=await resp.json();
+    if(data.error) throw new Error(data.error.message||'API 오류');
+
+    const text=(data.content?.filter(c=>c.type==='text').map(c=>c.text).join('\n')||'').trim();
+    prog.style.width='100%';
+
+    const lines=text.split('\n').filter(l=>l.trim());
+    extractedSets=[];
+    for(const line of lines){
+      const nums=[...new Set(
+        line.replace(/[^0-9\s]/g,' ').trim().split(/\s+/)
+          .map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=45)
+      )];
+      if(nums.length===6){
+        extractedSets.push(nums.sort((a,b)=>a-b));
+      } else if(nums.length>6){
+        for(let i=0;i+5<nums.length;i+=6)
+          extractedSets.push(nums.slice(i,i+6).sort((a,b)=>a-b));
+      }
+    }
+
+    if(extractedSets.length){
+      renderExtractedSets();
+      document.getElementById('extractedSetsWrap').style.display='block';
+      document.getElementById('extractedTitle').textContent=`인식된 번호 세트 (${extractedSets.length}개)`;
+    } else {
+      showToast('번호를 인식하지 못했습니다. 직접 입력 탭을 이용해 주세요.');
+    }
+
+  }catch(e){
+    console.error(e);
+    const isTimeout=e.message==='TIMEOUT';
+    showToast(isTimeout
+      ?'요청 시간이 초과됐습니다. 다시 시도해 주세요.'
+      :'인식 오류: '+e.message+' — 직접 입력 탭을 이용해 주세요.');
+  }finally{
+    loading.style.display='none';
+    prog.style.width='0%';
+  }
+}
+
+function renderExtractedSets(){
+  const list=document.getElementById('extractedSetsList');
+  list.innerHTML=extractedSets.map((set,i)=>`
+    <div class="ext-set-row" id="extrow_${i}">
+      <div class="ext-set-balls">${set.map(n=>`<div class="ball b26 ${bc(n)}">${n}</div>`).join('')}</div>
+      <button class="ext-reg-btn" id="extreg_${i}" onclick="registerExtracted(${i})">등록</button>
+    </div>`).join('');
+}
+
+function registerExtracted(i){
+  const set=extractedSets[i];
+  if(!set)return;
+  if(pushSet(curSrc,set)){
+    renderList(curSrc);updStats();analyzeAll();saveToLS();renderAddedPreview();
+    const btn=document.getElementById('extreg_'+i);
+    if(btn){btn.textContent='✓ 등록됨';btn.className='ext-reg-btn done';}
+    showToast(`${SOURCES.find(s=>s.id===curSrc).label}에 등록되었습니다`);
+  } else {
+    showToast('이미 등록된 번호 세트입니다.');
+  }
+}
+
+function registerAllExtracted(){
+  let added=0;
+  extractedSets.forEach((set,i)=>{
+    if(pushSet(curSrc,set)){
+      added++;
+      const btn=document.getElementById('extreg_'+i);
+      if(btn){btn.textContent='✓ 등록됨';btn.className='ext-reg-btn done';}
+    }
+  });
+  if(added){
+    renderList(curSrc);updStats();analyzeAll();saveToLS();renderAddedPreview();
+    showToast(`${added}개 세트가 등록되었습니다`);
+  } else {
+    showToast('모두 이미 등록된 세트입니다.');
+  }
+}
+
+function resetImgUpload(){
+  document.getElementById('uploadBoxLabel').style.display='block';
+  document.getElementById('imgPreviewWrap').style.display='none';
+  document.getElementById('extractedSetsWrap').style.display='none';
+  document.getElementById('extractedSetsList').innerHTML='';
+  document.getElementById('imgFileInput').value='';
+  extractedSets=[];
+}
+
+/* 이미지 탭 수동 입력 */
+function imgManualAdd(){
+  const inp=document.getElementById('imgManualInput');
+  if(!inp)return;
+  const nums=[...new Set(
+    (inp.value||'').replace(/[^0-9\s]/g,' ').trim().split(/\s+/)
+      .map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=45)
+  )];
+  if(!nums.length){showToast('1~45 사이 숫자를 입력해 주세요');return;}
+  const sets=toSets(nums);
+  let added=0;
+  for(const s of sets)if(pushSet(curSrc,s))added++;
+  if(added){
+    inp.value='';
+    renderList(curSrc);updStats();analyzeAll();saveToLS();renderAddedPreview();
+    showToast(`${added}개 세트가 등록되었습니다`);
+  } else {
+    showToast('이미 등록된 번호 세트입니다.');
+  }
+}
+
+/* 파일 → base64 */
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('파일 읽기 실패'));
+    r.readAsDataURL(file);
+  });
+}
+
+/* ── 직접 입력 (숫자패드) ── */
+function renderNumGrid(){
+  const grid=document.getElementById('numGrid');
+  grid.innerHTML='';
+  for(let n=1;n<=45;n++){
+    const btn=document.createElement('button');
+    btn.className='num-key b-white';
+    btn.id='nk_'+n;
+    btn.textContent=n;
+    btn.onclick=()=>toggleNum(n);
+    grid.appendChild(btn);
+  }
+}
+
+function toggleNum(n){
+  const idx=selNums.indexOf(n);
+  if(idx>=0){
+    selNums.splice(idx,1);
+  } else {
+    if(selNums.length>=6){showToast('6개까지 선택할 수 있습니다.');return;}
+    selNums.push(n);
+  }
+  updateNumDisplay();
+}
+
+function updateNumDisplay(){
+  const disp=document.getElementById('numDisplay');
+  if(!selNums.length){
+    disp.innerHTML='<span class="num-display-hint">숫자를 선택하세요 (최대 6개)</span>';
+  } else {
+    disp.innerHTML=selNums.sort((a,b)=>a-b).map(n=>ballHtml(n,'b34')).join('');
+  }
+  for(let n=1;n<=45;n++){
+    const k=document.getElementById('nk_'+n);
+    if(!k)continue;
+    if(selNums.includes(n)){
+      k.className=`num-key ball ${bc(n)} sel`;
+      k.style.cssText='color:#fff;border:none;opacity:1';
+    } else if(selNums.length>=6){
+      k.className='num-key b-white disabled';
+      k.style.cssText='opacity:.3';
+    } else {
+      k.className='num-key b-white';
+      k.style.cssText='';
+    }
+  }
+}
+
+function clearSel(){
+  selNums=[];
+  updateNumDisplay();
+}
+
+function addSelSet(){
+  try{
+    if(selNums.length<1){showToast('번호를 선택해 주세요.');return;}
+    if(selNums.length<6){showToast(selNums.length+'개 선택됨 — 6개를 선택해 주세요.');return;}
+    const set=[...selNums].sort((a,b)=>a-b);
+    if(pushSet(curSrc,set)){
+      clearSel();
+      try{renderList(curSrc);}catch(e){console.error('renderList',e);}
+      try{updStats();}catch(e){console.error('updStats',e);}
+      try{analyzeAll();}catch(e){console.error('analyzeAll',e);}
+      try{saveToLS();}catch(e){console.error('saveToLS',e);}
+      try{renderAddedPreview();}catch(e){console.error('renderAddedPreview',e);}
+      showToast((SOURCES.find(s=>s.id===curSrc)||{label:'출처'}).label+'에 세트가 추가되었습니다');
+    } else {
+      showToast('이미 등록된 번호 세트입니다.');
+    }
+  }catch(e){
+    console.error('addSelSet error:',e);
+    showToast('오류가 발생했습니다: '+e.message);
+  }
+}
+
+/* ── 번호 수정 페이지 ── */
+let editSrc=null;   // 수정 중인 출처 id
+let editIdx=null;   // 수정 중인 세트 인덱스
+let editNums=[];    // 수정 중 선택된 번호
+
+function openEditPage(sid,i){
+  editSrc=sid;
+  editIdx=i;
+  editNums=[...S.sets[sid][i]];
+
+  const src=SOURCES.find(s=>s.id===sid);
+
+  /* 헤더 정보 표시 */
+  const info=document.getElementById('editPageInfo');
+  if(info) info.innerHTML=`<span style="display:inline-flex;align-items:center;gap:4px">
+    <span style="width:6px;height:6px;border-radius:50%;background:${src.color};display:inline-block"></span>
+    ${src.label} · ${i+1}번째 세트
+  </span>`;
+
+  /* 기존 번호 표시 */
+  document.getElementById('editOrigBalls').innerHTML=
+    S.sets[sid][i].map(n=>`<div class="ball b34 ${bc(n)}">${n}</div>`).join('');
+
+  renderEditGrid();
+  updateEditDisplay();
+
+  document.getElementById('editPage').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+/* 수정 페이지에서 삭제 */
+function editPageDelete(){
+  const src=SOURCES.find(s=>s.id===editSrc);
+  const set=S.sets[editSrc][editIdx];
+  const ballsHtml=set.map(n=>`<div class="ball b34 ${bc(n)}">${n}</div>`).join('');
+  document.getElementById('modalContainer').innerHTML=`
+    <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+      <div class="modal">
+        <h3>🗑️ 번호 세트 삭제</h3>
+        <p style="margin-bottom:10px">아래 번호 세트를 삭제할까요?</p>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;padding:10px;background:#f8f8f6;border-radius:10px;margin-bottom:14px">
+          ${ballsHtml}
+        </div>
+        <p style="font-size:12px;color:#aaa;text-align:center;margin-bottom:16px">
+          <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0ec;padding:3px 10px;border-radius:20px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${src.color};display:inline-block"></span>
+            ${src.label} · ${editIdx+1}번째 세트
+          </span>
+        </p>
+        <div class="modal-btns">
+          <button class="btn btn-ghost btn-sm" onclick="closeM()">취소</button>
+          <button class="btn btn-danger btn-sm" onclick="doEditDelete()">삭제</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function doEditDelete(){
+  const sid=editSrc, i=editIdx;
+  closeM();
+  closeEditPage();
+  S.sets[sid].splice(i,1);
+  renderList(sid);
+  updStats();
+  analyzeAll();
+  saveToLS();
+  showToast((SOURCES.find(s=>s.id===sid)||{label:'출처'}).label+' '+( i+1)+'번째 세트가 삭제되었습니다');
+}
+
+function closeEditPage(){
+  document.getElementById('editPage').classList.remove('open');
+  document.body.style.overflow='';
+  editSrc=null; editIdx=null; editNums=[];
+}
+
+function renderEditGrid(){
+  const grid=document.getElementById('editNumGrid');
+  grid.innerHTML='';
+  for(let n=1;n<=45;n++){
+    const btn=document.createElement('button');
+    btn.id='enk_'+n;
+    btn.textContent=n;
+    btn.onclick=()=>toggleEditNum(n);
+    grid.appendChild(btn);
+  }
+  syncEditGrid();
+}
+
+function toggleEditNum(n){
+  const idx=editNums.indexOf(n);
+  if(idx>=0){
+    editNums.splice(idx,1);
+  } else {
+    if(editNums.length>=6){showToast('6개까지 선택할 수 있습니다.');return;}
+    editNums.push(n);
+  }
+  updateEditDisplay();
+  syncEditGrid();
+}
+
+function updateEditDisplay(){
+  const disp=document.getElementById('editNumDisplay');
+  if(!editNums.length){
+    disp.innerHTML='<span class="num-display-hint">수정할 번호 6개를 선택하세요</span>';
+  } else {
+    disp.innerHTML=[...editNums].sort((a,b)=>a-b)
+      .map(n=>`<div class="ball b34 ${bc(n)}">${n}</div>`).join('');
+  }
+}
+
+function syncEditGrid(){
+  for(let n=1;n<=45;n++){
+    const k=document.getElementById('enk_'+n);
+    if(!k)continue;
+    if(editNums.includes(n)){
+      k.className=`num-key ball ${bc(n)} sel`;
+      k.style.cssText='color:#fff;border:none;opacity:1';
+    } else if(editNums.length>=6){
+      k.className='num-key b-white disabled';
+      k.style.cssText='opacity:.3';
+    } else {
+      k.className='num-key b-white';
+      k.style.cssText='';
+    }
+  }
+}
+
+function clearEditSel(){
+  editNums=[];
+  updateEditDisplay();
+  syncEditGrid();
+}
+
+function saveEditSet(){
+  if(editNums.length<1){showToast('번호를 선택해 주세요.');return;}
+  if(editNums.length<6){showToast(`${editNums.length}개 선택됨 — 6개를 선택해야 저장됩니다.`);return;}
+
+  const newSet=[...editNums].sort((a,b)=>a-b);
+  const newKey=newSet.join(',');
+
+  /* 동일 출처 내 중복 세트 확인 (자기 자신 제외) */
+  const dup=S.sets[editSrc].some((s,i)=>i!==editIdx && s.join(',')===newKey);
+  if(dup){showToast('이미 등록된 번호 세트입니다.');return;}
+
+  S.sets[editSrc][editIdx]=newSet;
+  renderList(editSrc);
+  updStats();
+  analyzeAll();
+  saveToLS();
+
+  showToast(`${SOURCES.find(s=>s.id===editSrc).label} ${editIdx+1}번째 세트가 수정되었습니다`);
+  closeEditPage();
+}
+
+/* 완료 버튼 */
+function confirmAddAll(){
+  closeInputPage();
+}
+
+/* 입력 페이지 내 등록된 세트 미리보기 */
+function renderAddedPreview(){
+  const wrap=document.getElementById('addedSetsWrap');
+  const src=SOURCES.find(s=>s.id===curSrc);
+  const sets=S.sets[curSrc];
+  if(!sets.length){wrap.innerHTML='';return;}
+  wrap.innerHTML=`<div class="added-sets-title">
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${src.color};display:inline-block"></span>${src.label} 등록 세트 (${sets.length}개)</span>
+  </div>`+
+  sets.map((set,i)=>`
+    <div class="added-set-row">
+      <span style="font-size:10px;color:#bbb;min-width:14px">${i+1}</span>
+      <div class="added-set-balls">${set.map(n=>ballHtml(n,'b26')).join('')}</div>
+      <button class="del-btn" onclick="confirmDelSet('${curSrc}',${i},'preview')">✕</button>
+    </div>`).join('');
+}
+
+/* ── 공통 유틸 ── */
+function pushSet(sid,set){
+  const k=set.join(',');
+  for(const e of S.sets[sid])if(e.join(',')===k)return false;
+  S.sets[sid].push(set);return true;
+}
+
+function toSets(nums){
+  const res=[];
+  for(let i=0;i+5<nums.length;i+=6)res.push([...nums.slice(i,i+6)].sort((a,b)=>a-b));
+  if(!res.length&&nums.length>=1&&nums.length<=6)res.push([...nums].sort((a,b)=>a-b));
+  return res;
+}
+
+/* ── 교차 분석 (코어 고정 + 출처별 세트 완성) ── */
+function analyzeAll(){
+  try{
+  /* 분석 대상으로 선택(체크)된 출처 전체 */
+  const selected=SOURCES.filter(s=>S.active[s.id]);
+  /* 선택된 출처 중 번호가 입력된 출처 */
+  const active=selected.filter(s=>S.sets[s.id].length>0);
+
+  const rs=document.getElementById('resultSets');
+  const na=document.getElementById('narrative');
+  if(!rs||!na)return; /* 메인 화면 DOM 없으면 조용히 종료 */
+
+  /* 선택된 출처가 없음 */
+  if(!selected.length){
+    rs.innerHTML='<span style="font-size:11px;color:#bbb">분석 대상 출처를 선택해 주세요</span>';
+    na.style.display='none';
+    document.getElementById('analyzedCount').textContent='-';
+    return;
+  }
+
+  /* 선택된 출처 중 번호 미입력 출처가 하나라도 있으면 추천 불가 */
+  const missing=selected.filter(s=>S.sets[s.id].length===0);
+  if(missing.length>0){
+    const missingNames=missing.map(s=>s.label).join(', ');
+    rs.innerHTML=`<span style="font-size:11px;color:#aaa">${missingNames}에 번호를 입력해 주세요</span>`;
+    na.style.display='none';
+    document.getElementById('analyzedCount').textContent='-';
+    return;
+  }
+
+  /* 활성 출처 1개 — 교차 분석 불가 */
+  if(active.length<2){
+    rs.innerHTML='<span style="font-size:11px;color:#aaa">교차 분석은 2개 이상 출처가 필요합니다</span>';
+    na.style.display='none';
+    document.getElementById('analyzedCount').textContent='-';
+    return;
+  }
+
+  /* ── STEP 1: 각 번호가 몇 개 출처에 등장하는지 계산 ── */
+  const srcMap={};
+  for(const src of active){
+    const allNums=new Set(S.sets[src.id].flat());
+    for(const n of allNums){
+      if(!srcMap[n])srcMap[n]=new Set();
+      srcMap[n].add(src.id);
+    }
+  }
+
+  /* ── STEP 2: 코어 번호 결정 (최대 공통 레벨부터 하강) ── */
+  const maxSrc=active.length;
+  let coreNums=[];
+  let coreLevel=0;
+  for(let req=maxSrc;req>=2;req--){
+    const cands=Object.keys(srcMap)
+      .filter(n=>srcMap[n].size>=req)
+      .map(Number)
+      .sort((a,b)=>srcMap[b].size-srcMap[a].size||a-b);
+    if(cands.length>0){
+      coreNums=cands;
+      coreLevel=req;
+      break;
+    }
+  }
+
+  /* 공통번호 없음 — 폴백 없이 안내만 표시 */
+  if(!coreNums.length){
+    rs.innerHTML='<span style="font-size:11px;color:#aaa">출처 간 공통 번호가 없습니다. 번호 세트를 추가해 주세요.</span>';
+    na.style.display='none';
+    document.getElementById('analyzedCount').textContent='-';
+    return;
+  }
+
+  /* ── STEP 3: 출처별 추천 세트 생성 ── */
+  const recSets=[];
+  for(const src of active){
+    const srcFreq={};
+    for(const set of S.sets[src.id])for(const n of set)srcFreq[n]=(srcFreq[n]||0)+1;
+    const srcNums=Object.keys(srcFreq).map(Number).sort((a,b)=>srcFreq[b]-srcFreq[a]||a-b);
+
+    for(const origSet of S.sets[src.id]){
+      const origSet_s=new Set(origSet);
+      const coreInSet=coreNums.filter(n=>origSet_s.has(n));
+      const coreOther=coreNums.filter(n=>!origSet_s.has(n));
+      const selectedCore=[...coreInSet,...coreOther].slice(0,Math.min(coreNums.length,5));
+
+      const nonCoreInSet=origSet.filter(n=>!selectedCore.includes(n));
+      const remaining=[...new Set([...nonCoreInSet,...srcNums])].filter(n=>!selectedCore.includes(n));
+
+      const finalSet=[...selectedCore,...remaining].slice(0,6).sort((a,b)=>a-b);
+      recSets.push({src:src.id,label:src.label,color:src.color,set:finalSet,core:new Set(selectedCore)});
+    }
+  }
+
+  /* 중복 세트 제거 */
+  const seen=new Set();
+  const uniqueSets=recSets.filter(r=>{
+    const k=r.set.join(',');
+    if(seen.has(k))return false;
+    seen.add(k);return true;
+  });
+
+  /* ── STEP 4: UI 렌더 ── */
+  rs.innerHTML=uniqueSets.map(r=>`
+    <div class="rec-set-row">
+      <span class="rec-set-label" style="color:${r.color};font-weight:600">${r.label}</span>
+      <div class="rec-set-divider"></div>
+      <div class="rec-set-balls">
+        ${r.set.map(n=>{
+          const isCore=r.core.has(n);
+          return `<div class="ball b34 ${bc(n)}${isCore?' b-core':''}" title="${isCore?'코어(공통)':'보완'}">${n}</div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+
+  const coreStr=coreNums.slice(0,6).join(', ');
+  document.getElementById('analyzedCount').textContent=uniqueSets.length+'세트';
+
+  let story=`${active.map(s=>s.label).join('·')} 총 ${active.reduce((a,s)=>a+S.sets[s.id].length,0)}세트 분석. `;
+  story+=`<strong>${coreStr}</strong> 등 ${coreNums.length}개 번호가 ${coreLevel}개 출처 공통 코어로 선정. `;
+  story+=`코어(🟡 링)를 고정하고 각 출처별 나머지 번호로 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
+  na.innerHTML=story;
+  na.style.display='block';
+  }catch(e){console.error('analyzeAll error:',e);}
+}
+
+/* ── 초기화 ── */
+function confirmReset(){
+  document.getElementById('modalContainer').innerHTML=`
+    <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+      <div class="modal">
+        <h3>⚠️ 전체 초기화 확인</h3>
+        <p>모든 출처의 번호 세트가 삭제됩니다.<br>이 작업은 되돌릴 수 없습니다.</p>
+        <div class="modal-btns">
+          <button class="btn btn-ghost btn-sm" onclick="closeM()">취소</button>
+          <button class="btn btn-danger btn-sm" onclick="doReset()">초기화</button>
+        </div>
+      </div>
+    </div>`;
+}
+function doReset(){
+  SOURCES.forEach(s=>{S.sets[s.id]=[];renderList(s.id);});
+  updStats();
+  saveToLS();
+  document.getElementById('resultSets').innerHTML='<span style="font-size:11px;color:#bbb">번호를 입력하면 결과가 표시됩니다</span>';
+  document.getElementById('narrative').style.display='none';
+  document.getElementById('analyzedCount').textContent='-';
+  /* URL 파라미터도 제거 */
+  if(window.history&&window.history.replaceState){
+    window.history.replaceState(null,'',window.location.pathname);
+  }
+  closeM();
+}
+function closeM(){document.getElementById('modalContainer').innerHTML='';}
+
+/* ── 토스트 ── */
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  if(!t){console.log('Toast:',msg);return;}
+  t.textContent=msg;t.classList.add('show');
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+/* ── LocalStorage 저장/불러오기 ── */
+const LS_KEY='lotto_sets_v1';
+
+function saveToLS(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(S.sets));}catch(e){}
+}
+
+function loadFromLS(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){
+      const parsed=JSON.parse(raw);
+      SOURCES.forEach(s=>{if(Array.isArray(parsed[s.id]))S.sets[s.id]=parsed[s.id];});
+    }
+  }catch(e){}
+}
+
+/* ── URL 인코딩/디코딩 ── */
+function encodeData(){
+  /* 각 출처의 세트를 콤팩트하게 직렬화: A:1,2,3,4,5,6|7,8,9,10,11,12;B:... */
+  const parts=SOURCES.map(s=>{
+    const setsStr=S.sets[s.id].map(set=>set.join(',')).join('|');
+    return s.id+':'+setsStr;
+  }).join(';');
+  return btoa(encodeURIComponent(parts));
+}
+
+function decodeData(encoded){
+  try{
+    const parts=decodeURIComponent(atob(encoded));
+    parts.split(';').forEach(part=>{
+      const [sid,setsStr]=part.split(':');
+      if(!sid||!setsStr)return;
+      const src=SOURCES.find(s=>s.id===sid);
+      if(!src)return;
+      setsStr.split('|').forEach(setStr=>{
+        if(!setStr)return;
+        const nums=setStr.split(',').map(Number).filter(n=>n>=1&&n<=45);
+        if(nums.length>=1)pushSet(sid,nums.sort((a,b)=>a-b));
+      });
+    });
+  }catch(e){console.warn('URL 데이터 파싱 오류',e);}
+}
+
+function loadFromURL(){
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const d=params.get('d');
+    if(d){decodeData(d);return true;}
+    /* hash 방식도 지원 */
+    const hash=window.location.hash.replace('#','');
+    if(hash){decodeData(hash);return true;}
+  }catch(e){}
+  return false;
+}
+
+function shareUrl(){
+  const encoded=encodeData();
+  const total=SOURCES.reduce((a,s)=>a+S.sets[s.id].length,0);
+  if(!total){showToast('입력된 번호가 없습니다.');return;}
+  /* 현재 URL에 ?d= 파라미터 추가 */
+  const base=window.location.origin+window.location.pathname;
+  const shareLink=base+'?d='+encoded;
+  /* 클립보드 복사 */
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(shareLink).then(()=>{
+      showShareModal(shareLink);
+    }).catch(()=>showShareModal(shareLink));
+  } else {
+    showShareModal(shareLink);
+  }
+}
+
+function showShareModal(link){
+  document.getElementById('modalContainer').innerHTML=`
+    <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+      <div class="modal">
+        <h3>🔗 공유 링크</h3>
+        <p style="font-size:12px;color:#555;margin-bottom:8px">아래 링크를 복사해서 다른 기기에서 열면<br>동일한 번호 데이터를 볼 수 있습니다.</p>
+        <div style="background:#f5f5f0;border-radius:8px;padding:10px;font-size:11px;word-break:break-all;color:#185FA5;margin-bottom:12px;border:1px solid #e8e8e4;max-height:80px;overflow-y:auto">${link}</div>
+        <div class="modal-btns">
+          <button class="btn btn-ghost btn-sm" onclick="closeM()">닫기</button>
+          <button class="btn btn-primary btn-sm" onclick="copyLink('${link.replace(/'/g,"\\'")}')">📋 링크 복사</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function copyLink(link){
+  const ta=document.createElement('textarea');
+  ta.value=link;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+  closeM();
+  showToast('링크가 클립보드에 복사되었습니다!');
+}
+
+/* ── 저장 훅: 세트 변경 시마다 LS에 자동 저장 ── */
+function saveAndRefresh(){
+  saveToLS();
+  SOURCES.forEach(s=>renderList(s.id));
+  updStats();
+  analyzeAll();
+  renderAddedPreview();
+}
+
+init();
+</script>
+</body>
+</html>
