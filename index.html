@@ -321,8 +321,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div class="num-grid" id="numGrid"></div>
         <div class="num-actions">
-          <button class="btn btn-ghost btn-sm" onclick="clearSel()" style="flex:1">지우기</button>
-          <button class="btn btn-primary btn-sm" onclick="addSelSet()" style="flex:2">세트 추가 →</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearSel()" style="flex:1;font-size:11px">전체 지우기</button>
+          <button class="btn btn-ghost btn-sm" onclick="backspaceSel()" style="flex:1;font-size:11px">지우기 ←</button>
+          <button class="btn btn-primary btn-sm" onclick="addSelSet()" style="flex:1.2;font-size:11px">추가</button>
         </div>
       </div>
     </div>
@@ -838,6 +839,13 @@ function updateNumDisplay(){
 
 function clearSel(){
   selNums=[];
+  updateNumDisplay();
+}
+
+function backspaceSel(){
+  if(!selNums.length) return;
+  /* 선택된 번호 중 가장 마지막에 추가된 것 제거 */
+  selNums.pop();
   updateNumDisplay();
 }
 
