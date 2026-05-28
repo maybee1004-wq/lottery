@@ -255,9 +255,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .img-queue-balls{display:flex;gap:3px;flex-wrap:wrap;padding:4px 0}
 
 /* 검증 하이라이트 */
-.set-row.highlighted{background:#FFF8E1;border:2px solid #FFD600;border-radius:8px}
-.rec-set-row.selected{background:#FFF8E1;border:2px solid #FFD600;cursor:pointer}
-.rec-set-row{cursor:pointer}
+.set-row.highlighted{background:#FFF8E1;border:2px solid #FFD600;border-radius:8px;transition:all .2s}
+.rec-set-row.selected{background:#FFF8E1;border:2px solid #FFD600;transition:all .2s}
+.rec-set-row{cursor:pointer;transition:opacity .15s}
 .rec-set-row:active{opacity:.85}
 .modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:300;padding:20px}
 .modal{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%}
@@ -1547,32 +1547,72 @@ function toggleVerify(dataKey,rowIdx){
   const rrow=document.getElementById('rrow_'+rowIdx);
   if(rrow)rrow.classList.add('selected');
 
-  const [sid,idxStr]=dataKey.split(':');
-  const origIdx=parseInt(idxStr);
-  const board=document.getElementById('board_'+sid);
-  if(!board||board.classList.contains('hidden'))return;
-
-  /* 해당 세트가 접혀있으면 펼치기 */
-  if(!expandedBoards[sid]&&origIdx>=PREVIEW_COUNT){
-    expandedBoards[sid]=true;
-    renderList(sid);
+  /* 추천 행의 코어 번호 목록 추출 (b-core 클래스 볼) */
+  const coreNums=[];
+  if(rrow){
+    rrow.querySelectorAll('.ball.b-core').forEach(el=>{
+      const n=parseInt(el.textContent);
+      if(n>=1&&n<=45)coreNums.push(n);
+    });
+  }
+  if(!coreNums.length){
+    showToast('코어 번호가 없습니다.');
+    return;
   }
 
-  /* 세트 행 하이라이트 */
-  const setRows=board.querySelectorAll('.set-row');
-  if(setRows[origIdx]){
-    setRows[origIdx].classList.add('highlighted');
+  /* 모든 활성 출처에서 코어 번호를 하나라도 포함한 세트 하이라이트 */
+  let highlightCount=0;
+  let firstBoard=null;
+
+  SOURCES.forEach(src=>{
+    if(!S.active[src.id])return;
+    const board=document.getElementById('board_'+src.id);
+    if(!board||board.classList.contains('hidden'))return;
+
+    S.sets[src.id].forEach((set,i)=>{
+      /* 이 세트가 코어 번호를 몇 개 포함하는지 */
+      const matchCount=coreNums.filter(n=>set.includes(n)).length;
+      if(matchCount===0)return;
+
+      /* 접혀있으면 펼치기 */
+      if(!expandedBoards[src.id]&&i>=PREVIEW_COUNT){
+        expandedBoards[src.id]=true;
+        renderList(src.id);
+      }
+
+      /* 세트 행 하이라이트 + 매칭 개수 표시 */
+      const setRows=board.querySelectorAll('.set-row');
+      if(setRows[i]){
+        setRows[i].classList.add('highlighted');
+        /* 매칭 개수 배지 */
+        const badge=document.createElement('span');
+        badge.className='verify-badge';
+        badge.textContent=matchCount+'/'+coreNums.length;
+        badge.style.cssText='font-size:10px;color:#7A4F00;background:#FFD600;border-radius:10px;padding:1px 6px;margin-left:4px;flex-shrink:0;font-weight:600';
+        setRows[i].appendChild(badge);
+        highlightCount++;
+        if(!firstBoard)firstBoard=board;
+      }
+    });
+  });
+
+  if(firstBoard){
     setTimeout(()=>{
-      board.scrollIntoView({behavior:'smooth',block:'start'});
-      setTimeout(()=>setRows[origIdx].scrollIntoView({behavior:'smooth',block:'nearest'}),300);
+      firstBoard.scrollIntoView({behavior:'smooth',block:'start'});
     },100);
   }
-  showToast('원본 세트를 하이라이트했습니다. 다시 탭하면 해제됩니다.');
+
+  const coreStr=coreNums.join(', ');
+  showToast(`코어 ${coreStr} 포함 세트 ${highlightCount}개 하이라이트. 다시 탭하면 해제됩니다.`);
 }
 
 function clearVerify(){
   activeVerifyKey=null;
-  document.querySelectorAll('.set-row.highlighted').forEach(el=>el.classList.remove('highlighted'));
+  document.querySelectorAll('.set-row.highlighted').forEach(el=>{
+    el.classList.remove('highlighted');
+    /* 배지 제거 */
+    el.querySelectorAll('.verify-badge').forEach(b=>b.remove());
+  });
   document.querySelectorAll('.rec-set-row.selected').forEach(el=>el.classList.remove('selected'));
 }
 
