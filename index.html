@@ -356,13 +356,14 @@ function init(){
   if(fromURL||SOURCES.some(s=>S.sets[s.id].length>0))analyzeAll();
 
   /* claude.ai 미리보기/샌드박스 환경 감지 → 이미지 업로드 안내 표시 */
+  const proto = window.location.protocol;
+  const host  = window.location.hostname;
   const isSandbox = (
-    window.location.protocol === 'blob:' ||
-    window.location.hostname === '' ||
-    window.location.href.includes('claude.ai') ||
-    window.location.href.startsWith('blob:') ||
-    (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') ||
-    document.referrer.includes('claude.ai')
+    proto === 'blob:' ||
+    proto === 'about:' ||
+    (proto !== 'http:' && proto !== 'https:') ||
+    host === '' ||
+    host === 'null'
   );
   if(isSandbox){
     const w=document.getElementById('sandboxWarning');
