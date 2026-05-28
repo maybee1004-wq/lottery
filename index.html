@@ -415,9 +415,7 @@ function init(){
 function renderFilter(){
   document.getElementById('filterRow').innerHTML=
     '<span style="font-size:11px;color:#999;flex-shrink:0">분석 대상:</span>'+
-    SOURCES.map(s=>`<span class="filter-chip${S.active[s.id]?' on':''}" id="chip_${s.id}" onclick="toggleSrc('${s.id}')">
-      <span style="width:7px;height:7px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.label}
-    </span>`).join('');
+    SOURCES.map(s=>`<span class="filter-chip${S.active[s.id]?' on':''}" id="chip_${s.id}" onclick="toggleSrc('${s.id}')">${s.label}</span>`).join('');
 }
 function toggleSrc(id){
   S.active[id]=!S.active[id];
