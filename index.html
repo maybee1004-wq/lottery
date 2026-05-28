@@ -1507,12 +1507,12 @@ function analyzeAll(){
       const nonCore=origSet.filter(n=>!crossVerified.includes(n));
       const finalSet=[...crossVerified,...nonCore].slice(0,6).sort((a,b)=>a-b);
 
-      /* 이 추천의 근거: crossVerified 번호를 2개 이상 보유한 출처 세트만 포함 */
+      /* 이 추천의 근거: crossVerified 번호를 minCore개 이상 보유한 출처 세트만 포함 */
       const evidenceSets=[]; /* [{srcId, setIdx, matchCount}] */
       for(const evSrc of active){
         S.sets[evSrc.id].forEach((evSet,evIdx)=>{
           const matchCount=crossVerified.filter(n=>evSet.includes(n)).length;
-          if(matchCount>=2) evidenceSets.push({srcId:evSrc.id,setIdx:evIdx,matchCount});
+          if(matchCount>=minCore) evidenceSets.push({srcId:evSrc.id,setIdx:evIdx,matchCount});
         });
       }
 
@@ -1615,7 +1615,7 @@ function toggleVerify(rowIdx){
         /* 매칭 배지 */
         const badge=document.createElement('span');
         badge.className='verify-badge';
-        badge.textContent=ev.matchCount+'개 일치';
+        badge.textContent=ev.matchCount+'개 공통';
         badge.style.cssText='font-size:10px;color:#7A4F00;background:#FFD600;border-radius:10px;padding:1px 6px;margin-left:4px;flex-shrink:0;font-weight:600;white-space:nowrap';
         setRows[ev.setIdx].appendChild(badge);
         highlightCount++;
