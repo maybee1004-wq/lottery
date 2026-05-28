@@ -561,9 +561,8 @@ function confirmDelSet(sid,i,from){
   document.getElementById('modalContainer').innerHTML=`
     <div class="modal-wrap" onclick="if(event.target===this)closeM()">
       <div class="modal">
-        <h3>🗑️ 번호 세트 삭제</h3>
-        <p style="margin-bottom:10px">아래 번호 세트를 삭제할까요?</p>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;padding:10px;background:#f8f8f6;border-radius:10px;margin-bottom:14px">
+        <h3>번호 세트 관리</h3>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;padding:12px;background:#f8f8f6;border-radius:10px;margin:10px 0">
           ${ballsHtml}
         </div>
         <p style="font-size:12px;color:#aaa;text-align:center;margin-bottom:16px">
@@ -571,9 +570,10 @@ function confirmDelSet(sid,i,from){
             <span style="width:7px;height:7px;border-radius:50%;background:${src.color};display:inline-block"></span>${src.label} · ${i+1}번째 세트
           </span>
         </p>
-        <div class="modal-btns">
-          <button class="btn btn-ghost btn-sm" onclick="closeM()">취소</button>
-          <button class="btn btn-danger btn-sm" onclick="delSet('${sid}',${i},'${from}')">삭제</button>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary btn-sm" style="justify-content:center;width:100%;padding:10px" onclick="closeM();openEditPage('${sid}',${i})">✏️ 수정</button>
+          <button class="btn btn-danger btn-sm" style="justify-content:center;width:100%;padding:10px" onclick="delSet('${sid}',${i},'${from}')">🗑️ 삭제</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%;padding:10px" onclick="closeM()">취소</button>
         </div>
       </div>
     </div>`;
