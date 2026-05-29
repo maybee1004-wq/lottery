@@ -636,6 +636,28 @@ function openInputPage(sid){
     if(dim) dim.style.display='block';
   }
   document.body.style.overflow='hidden';
+
+  /* 출처 선택 안내 모달 */
+  setTimeout(()=>{
+    const src=SOURCES.find(s=>s.id===curSrc);
+    document.getElementById('modalContainer').innerHTML=`
+      <div class="modal-wrap" onclick="if(event.target===this)closeM()">
+        <div class="modal">
+          <h3>📌 출처 확인</h3>
+          <p>현재 선택된 출처는<br>
+            <strong style="font-size:15px;display:inline-flex;align-items:center;gap:6px;margin-top:6px">
+              <span style="width:10px;height:10px;border-radius:50%;background:${src.color};display:inline-block"></span>
+              ${src.label}
+            </strong>
+          입니다.<br><br>
+          번호를 입력할 출처가 맞으면 확인을, 다른 출처라면 변경 후 입력해 주세요.</p>
+          <div class="modal-btns">
+            <button class="btn btn-ghost btn-sm" onclick="closeM()">변경할게요</button>
+            <button class="btn btn-primary btn-sm" onclick="closeM()">확인, 입력할게요</button>
+          </div>
+        </div>
+      </div>`;
+  }, 200);
 }
 
 /* 인식된 세트 미등록 여부 확인 후 닫기 */
