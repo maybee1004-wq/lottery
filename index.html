@@ -282,7 +282,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="stats-row">
     <div class="stat-badge">전체 세트 <b id="totalCount">0</b>개</div>
     <div class="stat-badge">분석 출처 <b id="activeSourceCount">4</b>개</div>
-    <div class="stat-badge">추천 <b id="analyzedCount">-</b></div>
+    <div class="stat-badge">추천 세트 <b id="analyzedCount">-</b>개</div>
   </div>
   <div class="filter-row" id="filterRow"></div>
 
@@ -293,7 +293,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <!-- 노란 테두리 코어 아이콘 -->
         <div style="width:18px;height:18px;border-radius:50%;border:3px solid #FFD600;background:transparent;flex-shrink:0"></div>
         <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888">
-          <span>공통 개수</span>
+          <span>공통 번호 개수</span>
           <select id="minCoreSelect" onchange="analyzeAll()"
             style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#333;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:center">
             <option value="2">2개↑</option>
@@ -1579,11 +1579,11 @@ function analyzeAll(){
   }).join('');
 
   const coreStr=coreNums.slice(0,6).join(', ');
-  document.getElementById('analyzedCount').textContent=uniqueSets.length+'세트';
+  document.getElementById('analyzedCount').textContent=uniqueSets.length;
 
   let story=`${active.map(s=>s.label).join('·')} 총 ${active.reduce((a,s)=>a+S.sets[s.id].length,0)}세트 분석. `;
   story+=`<strong>${coreStr}</strong> 등 ${coreNums.length}개 번호가 ${coreLevel}개 출처 공통 코어로 선정. `;
-  story+=`코어(🟡 링)를 고정하고 공통 번호 ${minCore}개 이상 세트 기준 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
+  story+=`공통 번호 ${minCore}개 이상 세트 기준 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
   na.innerHTML=story;
   na.style.display='block';
   }catch(e){console.error('analyzeAll error:',e);}
