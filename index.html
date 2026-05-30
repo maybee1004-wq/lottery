@@ -764,7 +764,7 @@ async function processQueueItem(i){
 
   try{
     statusEl.textContent='🔄 이미지 압축 중...';
-    const dataUrl=await resizeImageToBase64(item.file,500,0.6);
+    const dataUrl=await resizeImageToBase64(item.file,800,0.75);
     item.dataUrl=dataUrl;
     thumbEl.src=dataUrl;
 
@@ -898,13 +898,13 @@ async function handleImgUpload(input){
     msg.textContent='이미지 압축 중...';
     prog.style.width='20%';
 
-    /* 단계적 압축: 200KB 이하가 될 때까지 줄임 */
-    const MAX_B64_BYTES = 200 * 1024;
+    /* 단계적 압축: 300KB 이하가 될 때까지 줄임 */
+    const MAX_B64_BYTES = 300 * 1024;
     const steps = [
-      {maxPx:500, quality:0.6},
-      {maxPx:400, quality:0.5},
-      {maxPx:300, quality:0.4},
-      {maxPx:240, quality:0.35},
+      {maxPx:800, quality:0.7},
+      {maxPx:640, quality:0.6},
+      {maxPx:480, quality:0.5},
+      {maxPx:360, quality:0.4},
     ];
     let dataUrl = null;
     let b64 = null;
