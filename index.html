@@ -764,7 +764,7 @@ async function processQueueItem(i){
 
   try{
     statusEl.textContent='🔄 이미지 압축 중...';
-    const dataUrl=await resizeImageToBase64(item.file,800,0.75);
+    const dataUrl=await resizeImageToBase64(item.file,500,0.6);
     item.dataUrl=dataUrl;
     thumbEl.src=dataUrl;
 
@@ -775,13 +775,13 @@ async function processQueueItem(i){
       method:'POST',
       headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-5',
-        max_tokens:600,
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:200,
         messages:[{
           role:'user',
           content:[
             {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
-            {type:'text',text:`이 이미지에서 로또 번호 세트를 모두 찾아주세요.\n규칙:\n- 각 세트는 1~45 사이의 숫자 6개입니다\n- 세트가 여러 개면 줄바꿈으로 구분하세요\n- 숫자만 공백으로 나열하고 다른 설명은 쓰지 마세요\n출력 예시:\n14 20 28 42 43 45\n12 14 19 37 38 40`}
+            {type:'text',text:'로또번호 세트 추출. 1~45 숫자 6개씩, 줄바꿈 구분, 숫자만 출력.\n예:\n14 20 28 42 43 45\n12 14 19 37 38 40'}
           ]
         }]
       })
@@ -898,13 +898,13 @@ async function handleImgUpload(input){
     msg.textContent='이미지 압축 중...';
     prog.style.width='20%';
 
-    /* 단계적 압축: 크기가 300KB 이하가 될 때까지 줄임 */
-    const MAX_B64_BYTES = 300 * 1024; // 300KB
+    /* 단계적 압축: 200KB 이하가 될 때까지 줄임 */
+    const MAX_B64_BYTES = 200 * 1024;
     const steps = [
-      {maxPx:800, quality:0.7},
-      {maxPx:640, quality:0.6},
-      {maxPx:480, quality:0.5},
-      {maxPx:360, quality:0.4},
+      {maxPx:500, quality:0.6},
+      {maxPx:400, quality:0.5},
+      {maxPx:300, quality:0.4},
+      {maxPx:240, quality:0.35},
     ];
     let dataUrl = null;
     let b64 = null;
@@ -925,20 +925,13 @@ async function handleImgUpload(input){
       method:'POST',
       headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-5',
-        max_tokens:600,
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:200,
         messages:[{
           role:'user',
           content:[
             {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
-            {type:'text',text:`이 이미지에서 로또 번호 세트를 모두 찾아주세요.
-규칙:
-- 각 세트는 1~45 사이의 숫자 6개입니다
-- 세트가 여러 개면 줄바꿈으로 구분하세요
-- 숫자만 공백으로 나열하고 다른 설명은 쓰지 마세요
-출력 예시:
-14 20 28 42 43 45
-12 14 19 37 38 40`}
+            {type:'text',text:'로또번호 세트 추출. 1~45 숫자 6개씩, 줄바꿈 구분, 숫자만 출력.\n예:\n14 20 28 42 43 45\n12 14 19 37 38 40'}
           ]
         }]
       })
