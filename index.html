@@ -38,6 +38,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .rec-set-balls .ball{width:30px;height:30px;font-size:13px;font-weight:800;flex-shrink:0}
 /* 코어 볼 강조 링 */
 .b-core{box-shadow:0 0 0 2px #fff,0 0 0 4px #FFD600}
+.narrative{font-size:11px;color:#777;line-height:1.6;border-top:1px solid #f0f0ec;padding-top:10px;margin-top:10px}
 
 /* 볼 */
 .ball{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;color:#fff}
@@ -312,9 +313,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="resultSets">
       <span style="font-size:11px;color:#bbb">번호를 입력하면 결과가 표시됩니다</span>
     </div>
+    <div class="narrative" id="narrative" style="display:none"></div>
     <div id="freqAnalysis" style="display:none;border-top:1px solid #f0f0ec;padding-top:10px;margin-top:10px">
-      <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:6px">📊 추천 번호 빈도 TOP 10</div>
-      <div id="freqBalls" style="font-size:13px;color:#555;line-height:2"></div>
+      <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:8px">📊 추천 번호 빈도 TOP 10</div>
+      <div id="freqBalls" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
     </div>
   </div>
 
@@ -1543,11 +1545,13 @@ function analyzeAll(){
   const active=selected.filter(s=>S.sets[s.id].length>0);
 
   const rs=document.getElementById('resultSets');
+  const na=document.getElementById('narrative');
   if(!rs||!na)return; /* 메인 화면 DOM 없으면 조용히 종료 */
 
   /* 선택된 출처가 없음 */
   if(!selected.length){
     rs.innerHTML='<span style="font-size:11px;color:#bbb">분석 대상 출처를 선택해 주세요</span>';
+    na.style.display='none';
     document.getElementById('analyzedCount').textContent='-';
     return;
   }
@@ -1557,6 +1561,7 @@ function analyzeAll(){
   if(missing.length>0){
     const missingNames=missing.map(s=>s.label).join(', ');
     rs.innerHTML=`<span style="font-size:11px;color:#aaa">${missingNames}에 번호를 입력해 주세요</span>`;
+    na.style.display='none';
     document.getElementById('analyzedCount').textContent='-';
     return;
   }
@@ -1564,6 +1569,7 @@ function analyzeAll(){
   /* 활성 출처 1개 — 교차 분석 불가 */
   if(active.length<2){
     rs.innerHTML='<span style="font-size:11px;color:#aaa">교차 분석은 2개 이상 출처가 필요합니다</span>';
+    na.style.display='none';
     document.getElementById('analyzedCount').textContent='-';
     return;
   }
@@ -1598,6 +1604,7 @@ function analyzeAll(){
   /* 공통번호 없음 */
   if(!coreNums.length){
     rs.innerHTML='<span style="font-size:11px;color:#aaa">출처 간 공통 번호가 없습니다. 번호 세트를 추가해 주세요.</span>';
+    na.style.display='none';
     document.getElementById('analyzedCount').textContent='-';
     return;
   }
@@ -1686,6 +1693,7 @@ function analyzeAll(){
   /* 결과 없음 */
   if(!recSets.length){
     rs.innerHTML=`<span style="font-size:11px;color:#aaa">공통 번호 ${minCore}개 이상인 세트가 없습니다. 옵션을 낮춰보세요.</span>`;
+    na.style.display='none';
     document.getElementById('analyzedCount').textContent='-';
     return;
   }
@@ -1714,7 +1722,14 @@ function analyzeAll(){
     </div>`;
   }).join('');
 
+  const coreStr=coreNums.slice(0,6).join(', ');
   document.getElementById('analyzedCount').textContent=uniqueSets.length;
+
+  let story=`${active.map(s=>s.label).join('·')} 총 ${active.reduce((a,s)=>a+S.sets[s.id].length,0)}세트 분석. `;
+  story+=`<strong>${coreStr}</strong> 등 ${coreNums.length}개 번호가 ${coreLevel}개 출처 공통 코어로 선정. `;
+  story+=`공통 번호 ${minCore}개 이상 세트 기준 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
+  na.innerHTML=story;
+  na.style.display='block';
 
   /* ── STEP 5: 추천 세트 빈도 TOP 10 분석 ── */
   const freqMap={};
@@ -1735,7 +1750,11 @@ function analyzeAll(){
     freqBalls.innerHTML=freqSorted.map(({n,cnt})=>{
       const ratio=cnt/maxCnt;
       const isBold=ratio>=0.7;
-      return `<span style="margin-right:10px;color:${isBold?'#111':'#888'};font-weight:${isBold?'700':'400'}">${n}(${cnt}회)</span>`;
+      const opacity=0.45+ratio*0.55;
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;opacity:${opacity.toFixed(2)}">
+        <div class="ball b34 ${bc(n)}" style="${isBold?'box-shadow:0 0 0 2.5px #fff,0 0 0 4px #1a1a1a;':''}">${n}</div>
+        <span style="font-size:13px;color:${isBold?'#111':'#888'};font-weight:${isBold?'700':'400'}">${cnt}회</span>
+      </div>`;
     }).join('');
     freqEl.style.display='block';
   } else if(freqEl){
@@ -1843,8 +1862,9 @@ function doReset(){
   updStats();
   saveToLS();
   document.getElementById('resultSets').innerHTML='<span style="font-size:11px;color:#bbb">번호를 입력하면 결과가 표시됩니다</span>';
-  const freqEl=document.getElementById('freqAnalysis');
-  if(freqEl) freqEl.style.display='none';
+  document.getElementById('narrative').style.display='none';
+  const freqEl2=document.getElementById('freqAnalysis');
+  if(freqEl2) freqEl2.style.display='none';
   document.getElementById('analyzedCount').textContent='-';
   /* URL 파라미터도 제거 */
   if(window.history&&window.history.replaceState){
