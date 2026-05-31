@@ -314,6 +314,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span style="font-size:11px;color:#bbb">번호를 입력하면 결과가 표시됩니다</span>
     </div>
     <div class="narrative" id="narrative" style="display:none"></div>
+    <div id="freqAnalysis" style="display:none;border-top:1px solid #f0f0ec;padding-top:10px;margin-top:10px">
+      <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:8px">📊 추천 번호 빈도 TOP 10</div>
+      <div id="freqBalls" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+    </div>
   </div>
 
   <div class="boards" id="boardsGrid"></div>
@@ -1726,6 +1730,38 @@ function analyzeAll(){
   story+=`공통 번호 ${minCore}개 이상 세트 기준 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
   na.innerHTML=story;
   na.style.display='block';
+
+  /* ── STEP 5: 추천 세트 빈도 TOP 10 분석 ── */
+  const freqMap={};
+  uniqueSets.forEach(r=>{
+    r.set.forEach(n=>{
+      freqMap[n]=(freqMap[n]||0)+1;
+    });
+  });
+  const freqSorted=Object.entries(freqMap)
+    .map(([n,cnt])=>({n:Number(n),cnt}))
+    .sort((a,b)=>b.cnt-a.cnt||a.n-b.n)
+    .slice(0,10);
+
+  const maxCnt=freqSorted[0]?.cnt||1;
+  const freqEl=document.getElementById('freqAnalysis');
+  const freqBalls=document.getElementById('freqBalls');
+  if(freqEl&&freqBalls&&freqSorted.length){
+    freqBalls.innerHTML=freqSorted.map(({n,cnt})=>{
+      /* 빈도 비율에 따라 투명도·굵기 차등 */
+      const ratio=cnt/maxCnt;
+      const isBold=ratio>=0.7;
+      const opacity=0.45+ratio*0.55;
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;opacity:${opacity.toFixed(2)}">
+        <div class="ball b34 ${bc(n)}" style="${isBold?'box-shadow:0 0 0 2.5px #fff,0 0 0 4px #1a1a1a;':''}">${n}</div>
+        <span style="font-size:13px;color:${isBold?'#111':'#888'};font-weight:${isBold?'700':'400'}">${cnt}회</span>
+      </div>`;
+    }).join('');
+    freqEl.style.display='block';
+  } else if(freqEl){
+    freqEl.style.display='none';
+  }
+
   }catch(e){console.error('analyzeAll error:',e);}
 }
 
@@ -1828,6 +1864,8 @@ function doReset(){
   saveToLS();
   document.getElementById('resultSets').innerHTML='<span style="font-size:11px;color:#bbb">번호를 입력하면 결과가 표시됩니다</span>';
   document.getElementById('narrative').style.display='none';
+  const freqEl=document.getElementById('freqAnalysis');
+  if(freqEl) freqEl.style.display='none';
   document.getElementById('analyzedCount').textContent='-';
   /* URL 파라미터도 제거 */
   if(window.history&&window.history.replaceState){
