@@ -1747,11 +1747,13 @@ function analyzeAll(){
   const freqEl=document.getElementById('freqAnalysis');
   const freqBalls=document.getElementById('freqBalls');
   if(freqEl&&freqBalls&&freqSorted.length){
-    freqBalls.innerHTML=freqSorted.map(({n,cnt})=>{
-      const ratio=cnt/maxCnt;
-      const isBold=ratio>=0.7;
-      return `<span style="margin-right:10px;color:${isBold?'#111':'#888'};font-weight:${isBold?'700':'400'}">${n}(${cnt}회)</span>`;
-    }).join('');
+    const lines=[freqSorted.slice(0,5),freqSorted.slice(5,10)];
+    freqBalls.innerHTML=lines.map(group=>
+      group.map(({n,cnt})=>{
+        const isBold=cnt/maxCnt>=0.7;
+        return `<span style="color:${isBold?'#111':'#888'};font-weight:${isBold?'700':'400'}">${n}(${cnt}회)</span>`;
+      }).join('<span style="color:#ccc">, </span>')
+    ).filter(s=>s).join('<br>');
     freqEl.style.display='block';
   } else if(freqEl){
     freqEl.style.display='none';
