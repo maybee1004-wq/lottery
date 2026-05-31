@@ -1725,11 +1725,8 @@ function analyzeAll(){
   const coreStr=coreNums.slice(0,6).join(', ');
   document.getElementById('analyzedCount').textContent=uniqueSets.length;
 
-  let story=`${active.map(s=>s.label).join('·')} 총 ${active.reduce((a,s)=>a+S.sets[s.id].length,0)}세트 분석. `;
-  story+=`<strong>${coreStr}</strong> 등 ${coreNums.length}개 번호가 ${coreLevel}개 출처 공통 코어로 선정. `;
-  story+=`공통 번호 ${minCore}개 이상 세트 기준 <strong>${uniqueSets.length}개</strong> 추천 세트 생성.`;
-  na.innerHTML=story;
-  na.style.display='block';
+  /* narrative 텍스트 영역 비표시 */
+  na.style.display='none';
 
   /* ── STEP 5: 추천 세트 빈도 TOP 10 분석 ── */
   const freqMap={};
