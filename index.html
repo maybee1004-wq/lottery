@@ -1751,8 +1751,8 @@ function analyzeAll(){
     freqBalls.innerHTML=lines.map(group=>
       group.map(({n,cnt})=>{
         const isBold=cnt/maxCnt>=0.7;
-        return `<span style="color:${isBold?'#111':'#888'};font-weight:${isBold?'700':'400'}">${n}(${cnt}회)</span>`;
-      }).join('<span style="color:#ccc">, </span>')
+        return `<span style="color:#111;font-weight:${isBold?'700':'400'}">${n}(${cnt}회)</span>`;
+      }).join('<span style="color:#111">, </span>')
     ).filter(s=>s).join('<br>');
     freqEl.style.display='block';
   } else if(freqEl){
